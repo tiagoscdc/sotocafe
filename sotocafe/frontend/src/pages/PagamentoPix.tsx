@@ -12,7 +12,7 @@ import {
   Divider,
   Grid
 } from '@mui/material'
-import { QrCode, CheckCircle, ContentCopy } from '@mui/icons-material'
+import { CheckCircle, ContentCopy } from '@mui/icons-material'
 import api from '../services/api'
 
 const PagamentoPix = () => {

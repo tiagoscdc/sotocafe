@@ -6,7 +6,6 @@ import {
   Tabs,
   Tab,
   Card,
-  CardContent,
   Button,
   Table,
   TableBody,
@@ -26,10 +25,9 @@ import {
   Select,
   MenuItem,
   Switch,
-  FormControlLabel,
-  Alert
+  FormControlLabel
 } from '@mui/material'
-import { Edit, Delete, Add, CheckCircle } from '@mui/icons-material'
+import { Edit, Delete, Add } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
@@ -329,7 +327,7 @@ const Admin = () => {
       </Typography>
 
       <Card>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+        <Tabs value={tabValue} onChange={(_e, newValue) => setTabValue(newValue)}>
           <Tab label="Produtos" />
           <Tab label="Cupons" />
         </Tabs>

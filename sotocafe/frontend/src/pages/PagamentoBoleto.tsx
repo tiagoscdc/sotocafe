@@ -12,7 +12,7 @@ import {
   Divider,
   Grid
 } from '@mui/material'
-import { Receipt, CheckCircle, Download, ContentCopy } from '@mui/icons-material'
+import { CheckCircle, Download, ContentCopy } from '@mui/icons-material'
 import api from '../services/api'
 
 const PagamentoBoleto = () => {
