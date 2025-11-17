@@ -4,7 +4,7 @@ import sequelize from '../config/database';
 const router = Router();
 
 // Listar categorias (público)
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
     const [categoriasResult]: any = await sequelize.query(
       `SELECT 
@@ -25,13 +25,13 @@ router.get('/', async (req: Request, res: Response) => {
     
     const categorias = Array.isArray(categoriasResult) ? categoriasResult : [];
 
-    res.json({
+    return res.json({
       success: true,
       data: categorias
     });
   } catch (error: any) {
     console.error('Erro ao listar categorias:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao listar categorias',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -61,13 +61,13 @@ router.get('/:slug', async (req: Request, res: Response) => {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: categoria
     });
   } catch (error: any) {
     console.error('Erro ao buscar categoria:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar categoria',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

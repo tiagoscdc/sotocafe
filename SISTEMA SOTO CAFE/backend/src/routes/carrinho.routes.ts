@@ -71,7 +71,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     
     const itens = Array.isArray(itensArray) ? itensArray : [];
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         ...carrinho,
@@ -80,7 +80,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao buscar carrinho:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar carrinho',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -187,13 +187,13 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
       );
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Item adicionado ao carrinho'
     });
   } catch (error: any) {
     console.error('Erro ao adicionar item:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao adicionar item ao carrinho',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

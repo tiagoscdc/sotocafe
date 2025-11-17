@@ -138,7 +138,7 @@ router.post('/login', async (req: Request, res: Response) => {
     );
 
     // Gerar token JWT
-    const jwtSecret = process.env.JWT_SECRET || 'secret';
+    const jwtSecret: string = process.env.JWT_SECRET || 'secret';
     const token = jwt.sign(
       {
         id: user.id_usuario,
@@ -146,10 +146,10 @@ router.post('/login', async (req: Request, res: Response) => {
         tipoUsuario: user.tipo_usuario
       },
       jwtSecret,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string }
     );
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Login realizado com sucesso',
       data: {
@@ -193,13 +193,13 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: users[0]
     });
   } catch (error: any) {
     console.error('Erro ao buscar perfil:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar perfil',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

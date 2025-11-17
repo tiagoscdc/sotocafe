@@ -141,14 +141,14 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       }
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Pedido criado com sucesso',
       data: pedidoCriado[0]
     });
   } catch (error: any) {
     console.error('Erro ao criar pedido:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao criar pedido',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
