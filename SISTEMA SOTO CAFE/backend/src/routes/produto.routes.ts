@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import sequelize from '../config/database';
-import { authenticateToken, authorizeRoles, AuthRequest } from '../middleware/auth.middleware';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -162,7 +162,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao buscar produto:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar produto',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -223,7 +223,7 @@ router.post('/', authenticateToken, authorizeRoles('Administrador'), async (req:
     });
   } catch (error: any) {
     console.error('Erro ao criar produto:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao criar produto',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

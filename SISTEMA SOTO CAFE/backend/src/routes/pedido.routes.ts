@@ -223,7 +223,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
     });
   } catch (error: any) {
     console.error('Erro ao buscar pedido:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar pedido',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

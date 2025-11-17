@@ -87,7 +87,7 @@ router.post('/enderecos', authenticateToken, async (req: AuthRequest, res: Respo
     });
   } catch (error: any) {
     console.error('Erro ao adicionar endereço:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao adicionar endereço',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -132,7 +132,7 @@ router.get('/fidelidade', authenticateToken, async (req: AuthRequest, res: Respo
     });
   } catch (error: any) {
     console.error('Erro ao buscar fidelidade:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar programa de fidelidade',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

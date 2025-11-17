@@ -6,7 +6,7 @@ import { usuariosExpandidos, produtosExpandidos, enderecosExpandidos, cuponsExpa
 const router = Router();
 
 // Rota para verificar status do banco
-router.get('/status', async (req: Request, res: Response) => {
+router.get('/status', async (_req: Request, res: Response) => {
   try {
     const [countUsuarios]: any = await sequelize.query('SELECT COUNT(*) as count FROM usuarios');
     const [countProdutos]: any = await sequelize.query('SELECT COUNT(*) as count FROM produtos');
@@ -34,7 +34,7 @@ router.get('/status', async (req: Request, res: Response) => {
 });
 
 // Rota para popular o banco (apenas em desenvolvimento)
-router.post('/populate', async (req: Request, res: Response) => {
+router.post('/populate', async (_req: Request, res: Response) => {
   try {
     console.log('📦 Iniciando população do banco...');
     
@@ -253,7 +253,7 @@ router.post('/populate', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ Erro ao popular banco:', error);
     console.error('Stack:', error.stack);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao popular banco de dados',
       error: error.message,

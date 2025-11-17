@@ -43,7 +43,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Rotas
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({ status: 'OK', message: 'Soto Café API está funcionando!' });
 });
 
@@ -56,7 +56,7 @@ app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/seed', seedRoutes);
 
 // Middleware de erro
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({
     success: false,
@@ -66,7 +66,7 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Rota 404
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({
     success: false,
     message: 'Rota não encontrada'
