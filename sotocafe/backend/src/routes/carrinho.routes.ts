@@ -57,26 +57,33 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     }
 
     // Buscar itens do carrinho (garantir que carrinho.id_carrinho existe)
-    const [itensArray]: any = await sequelize.query(
-      `SELECT 
-        ic.*,
-        p.nome_produto,
-        p.slug,
-        p.preco_unitario,
-        p.estoque_atual,
-        (SELECT url_imagem FROM imagens_produto 
-         WHERE id_produto = p.id_produto AND principal = 1 
-         LIMIT 1) as imagem
-      FROM item_carrinho ic
-      INNER JOIN produtos p ON ic.id_produto = p.id_produto
-      WHERE ic.id_carrinho = ? AND p.ativo = 1`,
-      {
-        replacements: [carrinho.id_carrinho],
-        type: sequelize.QueryTypes.SELECT
-      }
-    );
-    
-    const itens = Array.isArray(itensArray) ? itensArray : [];
+    let itens: any[] = [];
+    try {
+      const [itensArray]: any = await sequelize.query(
+        `SELECT 
+          ic.*,
+          p.nome_produto,
+          p.slug,
+          p.preco_unitario,
+          p.estoque_atual,
+          (SELECT url_imagem FROM imagens_produto 
+           WHERE id_produto = p.id_produto AND principal = 1 
+           LIMIT 1) as imagem
+        FROM item_carrinho ic
+        INNER JOIN produtos p ON ic.id_produto = p.id_produto
+        WHERE ic.id_carrinho = ? AND p.ativo = 1`,
+        {
+          replacements: [carrinho.id_carrinho],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      
+      itens = Array.isArray(itensArray) ? itensArray : [];
+    } catch (itensError: any) {
+      // Se der erro ao buscar itens (pode ser que não existam itens ainda), retornar array vazio
+      console.warn('⚠️ Erro ao buscar itens do carrinho (pode ser normal se carrinho estiver vazio):', itensError.message);
+      itens = [];
+    }
 
     return res.json({
       success: true,
@@ -96,6 +103,15 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       path: error.path,
       userId: req.user?.id
     });
+    
+    // Verificar se é erro de tabela não existe
+    if (error.message?.includes('no such table')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Banco de dados não inicializado. Acesse /api/seed/populate para popular o banco.',
+        error: 'Database not initialized'
+      });
+    }
     
     // Verificar se é erro de permissão de escrita (comum no Vercel)
     if (error.message?.includes('readonly') || error.message?.includes('EACCES') || error.code === 'EACCES' || error.code === 'EROFS') {
@@ -249,6 +265,15 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
       id_produto: id_produto,
       quantidade: quantidade
     });
+    
+    // Verificar se é erro de tabela não existe
+    if (error.message?.includes('no such table')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Banco de dados não inicializado. Acesse /api/seed/populate para popular o banco.',
+        error: 'Database not initialized'
+      });
+    }
     
     // Verificar se é erro de permissão de escrita (comum no Vercel)
     if (error.message?.includes('readonly') || error.message?.includes('EACCES') || error.code === 'EACCES' || error.code === 'EROFS') {

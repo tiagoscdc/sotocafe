@@ -60,7 +60,7 @@ router.get('/', async (req: Request, res: Response) => {
     });
     
     // SQLite retorna array dentro de array
-    const produtos = Array.isArray(produtosResult) && produtosResult.length > 0 ? produtosResult : [];
+    const produtos = Array.isArray(produtosResult) ? produtosResult : [];
 
     // Contar total
     let countQuery = 'SELECT COUNT(*) as total FROM produtos p INNER JOIN categorias c ON p.id_categoria = c.id_categoria WHERE p.ativo = 1';
@@ -100,10 +100,26 @@ router.get('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao listar produtos:', error);
+    console.error('Stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno
+    });
+    
+    // Verificar se é erro de tabela não existe
+    if (error.message?.includes('no such table')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Banco de dados não inicializado. Acesse /api/seed/populate para popular o banco.',
+        error: 'Database not initialized'
+      });
+    }
+    
     return res.status(500).json({
       success: false,
       message: 'Erro ao listar produtos',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor'
     });
   }
 });
