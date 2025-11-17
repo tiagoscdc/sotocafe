@@ -88,7 +88,7 @@ router.get('/', async (req: Request, res: Response) => {
     
     const countResult = Array.isArray(countResultArray) && countResultArray.length > 0 ? countResultArray[0] : { total: 0 };
 
-    res.json({
+    return res.json({
       success: true,
       data: produtos,
       pagination: {
@@ -100,7 +100,7 @@ router.get('/', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao listar produtos:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao listar produtos',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -156,7 +156,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       produto.imagem_principal = principal ? principal.url_imagem : produto.imagens[0].url_imagem;
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: produto
     });
@@ -216,7 +216,7 @@ router.post('/', authenticateToken, authorizeRoles('Administrador'), async (req:
       }
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Produto criado com sucesso',
       data: result

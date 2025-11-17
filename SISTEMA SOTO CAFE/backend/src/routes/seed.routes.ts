@@ -14,7 +14,7 @@ router.get('/status', async (_req: Request, res: Response) => {
     const [countCupons]: any = await sequelize.query('SELECT COUNT(*) as count FROM cupons_desconto');
     const [countEnderecos]: any = await sequelize.query('SELECT COUNT(*) as count FROM enderecos');
     
-    res.json({
+    return res.json({
       success: true,
       data: {
         usuarios: countUsuarios[0]?.count || 0,
@@ -25,7 +25,7 @@ router.get('/status', async (_req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao verificar status',
       error: error.message
@@ -239,7 +239,7 @@ router.post('/populate', async (_req: Request, res: Response) => {
     const [countCupons]: any = await sequelize.query('SELECT COUNT(*) as count FROM cupons_desconto');
     const [countEnderecos]: any = await sequelize.query('SELECT COUNT(*) as count FROM enderecos');
     
-    res.json({
+    return res.json({
       success: true,
       message: 'Banco de dados populado com sucesso!',
       data: {

@@ -17,13 +17,13 @@ router.get('/enderecos', authenticateToken, async (req: AuthRequest, res: Respon
       }
     );
 
-    res.json({
+    return res.json({
       success: true,
       data: enderecos
     });
   } catch (error: any) {
     console.error('Erro ao buscar endereços:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao buscar endereços',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -80,7 +80,7 @@ router.post('/enderecos', authenticateToken, async (req: AuthRequest, res: Respo
       }
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Endereço adicionado com sucesso',
       data: result
@@ -126,7 +126,7 @@ router.get('/fidelidade', authenticateToken, async (req: AuthRequest, res: Respo
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: fidelidade
     });

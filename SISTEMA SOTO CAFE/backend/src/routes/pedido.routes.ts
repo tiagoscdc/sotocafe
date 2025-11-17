@@ -217,7 +217,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       data: pedido
     });
