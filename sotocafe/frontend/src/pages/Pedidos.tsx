@@ -10,8 +10,10 @@ const Pedidos = () => {
     queryKey: ['pedidos'],
     queryFn: async () => {
       const response = await api.get('/pedidos')
-      return response.data.data
+      return response.data.data || []
     },
+    refetchOnWindowFocus: true,
+    staleTime: 0, // Sempre buscar dados atualizados
   })
 
   if (isLoading) {

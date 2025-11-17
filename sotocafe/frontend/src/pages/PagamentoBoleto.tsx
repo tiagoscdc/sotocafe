@@ -19,7 +19,7 @@ const PagamentoBoleto = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { carrinho, endereco, total, cupomAplicado } = location.state || {}
+  const { carrinho, endereco, total, cupomAplicado, frete } = location.state || {}
   const [codigoBarras, setCodigoBarras] = useState('')
   const [linhaDigitavel, setLinhaDigitavel] = useState('')
   const [vencimento, setVencimento] = useState('')
@@ -37,7 +37,7 @@ const PagamentoBoleto = () => {
         itens,
         id_endereco_entrega: endereco.id_endereco,
         metodo_pagamento: 'Boleto',
-        valor_frete: 0, // Frete será calculado depois
+        valor_frete: frete || 0,
         id_cupom: cupomAplicado?.id_cupom || null
       })
       return response.data
@@ -45,13 +45,37 @@ const PagamentoBoleto = () => {
     onSuccess: async (data) => {
       // Limpar carrinho após criar pedido
       try {
-        await api.delete('/carrinho')
+        // Limpar itens do carrinho primeiro
+        if (carrinho?.itens && carrinho.itens.length > 0) {
+          for (const item of carrinho.itens) {
+            try {
+              await api.delete(`/carrinho/itens/${item.id_item_carrinho}`)
+            } catch (e) {
+              console.warn('Erro ao remover item do carrinho:', e)
+            }
+          }
+        }
+        
+        // Tentar limpar carrinho completo
+        try {
+          await api.delete('/carrinho')
+        } catch (e) {
+          console.warn('Erro ao limpar carrinho:', e)
+        }
+        
+        // Forçar remoção do cache do carrinho
+        queryClient.setQueryData(['carrinho'], null)
+        queryClient.removeQueries({ queryKey: ['carrinho'] })
         queryClient.invalidateQueries({ queryKey: ['carrinho'] })
       } catch (e) {
         console.warn('Erro ao limpar carrinho:', e)
+        // Mesmo com erro, continuar
       }
       
+      // Invalidar e refetch pedidos
       queryClient.invalidateQueries({ queryKey: ['pedidos'] })
+      queryClient.refetchQueries({ queryKey: ['pedidos'] })
+      
       alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
       navigate('/pedidos')
     },
@@ -241,6 +265,20 @@ const PagamentoBoleto = () => {
               ))}
 
               <Divider sx={{ my: 2 }} />
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>Subtotal:</Typography>
+                <Typography>R$ {(total - (frete || 0)).toFixed(2)}</Typography>
+              </Box>
+
+              {frete > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography>Frete:</Typography>
+                  <Typography>R$ {frete.toFixed(2)}</Typography>
+                </Box>
+              )}
+
+              <Divider sx={{ my: 1 }} />
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography variant="h6">Total:</Typography>

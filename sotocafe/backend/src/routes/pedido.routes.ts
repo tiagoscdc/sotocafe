@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import sequelize from '../config/database';
 import { authenticateToken, AuthRequest } from '../middleware/auth.middleware';
+import { calcularFrete } from '../services/frete.service';
 
 const router = Router();
 
@@ -17,11 +18,22 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Calcular subtotal
+    // Buscar endereço para calcular frete
+    const [enderecoArray]: any = await sequelize.query(
+      'SELECT cep FROM enderecos WHERE id_endereco = ?',
+      {
+        replacements: [id_endereco_entrega],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+    const endereco = Array.isArray(enderecoArray) && enderecoArray.length > 0 ? enderecoArray[0] : null;
+
+    // Calcular subtotal e peso total
     let valorSubtotal = 0;
+    let pesoTotal = 0;
     for (const item of itens) {
       const [produtoArray]: any = await sequelize.query(
-        'SELECT preco_unitario, estoque_atual FROM produtos WHERE id_produto = ? AND ativo = 1',
+        'SELECT preco_unitario, estoque_atual, peso_gramas FROM produtos WHERE id_produto = ? AND ativo = 1',
         {
           replacements: [item.id_produto],
           type: sequelize.QueryTypes.SELECT
@@ -37,15 +49,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         });
       }
 
-      // Remover validação de estoque para sistema acadêmico
-      // if (produto.estoque_atual < item.quantidade) {
-      //   return res.status(400).json({
-      //     success: false,
-      //     message: `Estoque insuficiente para o produto ${item.id_produto}`
-      //   });
-      // }
-
       valorSubtotal += Number(produto.preco_unitario) * item.quantidade;
+      pesoTotal += (Number(produto.peso_gramas) || 0) * item.quantidade;
     }
 
     // Calcular desconto do cupom
@@ -76,7 +81,17 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const valorTotal = valorSubtotal - valorDesconto + (valor_frete || 0);
+    // Calcular frete se não foi fornecido
+    let freteCalculado = valor_frete || 0;
+    if (!valor_frete && endereco) {
+      freteCalculado = calcularFrete({
+        cep: endereco.cep,
+        pesoTotal,
+        valorSubtotal
+      });
+    }
+
+    const valorTotal = valorSubtotal - valorDesconto + freteCalculado;
 
     // Gerar número de pedido
     const numeroPedido = `PED-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
@@ -95,7 +110,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           metodo_pagamento,
           valorSubtotal,
           valorDesconto,
-          valor_frete || 0,
+          freteCalculado,
           valorTotal,
           id_cupom || null,
           'Pendente' // Status inicial do pagamento

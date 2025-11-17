@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import sequelize from '../config/database';
 import bcrypt from 'bcryptjs';
-import { usuariosExpandidos, produtosExpandidos, enderecosExpandidos, cuponsExpandidos } from './seed-expanded';
+import { usuariosExpandidos, produtosExpandidos, enderecosExpandidos, cuponsExpandidos, gerarPedidosExemplo } from './seed-expanded';
 
 const router = Router();
 
@@ -13,6 +13,7 @@ router.get('/status', async (_req: Request, res: Response) => {
     const [countCategorias]: any = await sequelize.query('SELECT COUNT(*) as count FROM categorias');
     const [countCupons]: any = await sequelize.query('SELECT COUNT(*) as count FROM cupons_desconto');
     const [countEnderecos]: any = await sequelize.query('SELECT COUNT(*) as count FROM enderecos');
+    const [countPedidos]: any = await sequelize.query('SELECT COUNT(*) as count FROM pedidos');
     
     return res.json({
       success: true,
@@ -21,7 +22,8 @@ router.get('/status', async (_req: Request, res: Response) => {
         produtos: countProdutos[0]?.count || 0,
         categorias: countCategorias[0]?.count || 0,
         cupons: countCupons[0]?.count || 0,
-        enderecos: countEnderecos[0]?.count || 0
+        enderecos: countEnderecos[0]?.count || 0,
+        pedidos: countPedidos[0]?.count || 0
       }
     });
   } catch (error: any) {
@@ -108,13 +110,13 @@ router.post('/populate', async (_req: Request, res: Response) => {
       // Desabilitar foreign keys temporariamente para permitir DELETE
       await sequelize.query('PRAGMA foreign_keys = OFF');
       
+      await sequelize.query('DELETE FROM historico_status_pedido');
       await sequelize.query('DELETE FROM item_pedido');
       await sequelize.query('DELETE FROM pedidos');
       await sequelize.query('DELETE FROM item_carrinho');
       await sequelize.query('DELETE FROM carrinho');
       await sequelize.query('DELETE FROM historico_pontos');
       await sequelize.query('DELETE FROM programa_fidelidade');
-      await sequelize.query('DELETE FROM historico_status_pedido');
       await sequelize.query('DELETE FROM imagens_produto');
       await sequelize.query('DELETE FROM produtos');
       await sequelize.query('DELETE FROM enderecos');
@@ -249,9 +251,89 @@ router.post('/populate', async (_req: Request, res: Response) => {
     console.log('🎫 Inserindo cupons...');
     for (const cupom of cuponsExpandidos) {
       await sequelize.query(
-        `INSERT OR IGNORE INTO cupons_desconto (codigo_cupom, tipo_desconto, valor_desconto, data_inicio, data_fim, valor_minimo_pedido, ativo, aplicavel_todos_produtos) VALUES (?, ?, ?, date('now'), date('now', '+90 days'), ?, ?, ?)`,
+        `INSERT OR IGNORE INTO cupons_desconto (codigo_cupom, tipo_desconto, valor_desconto, data_inicio, data_fim, valor_minimo_pedido, ativo) VALUES (?, ?, ?, date('now'), date('now', '+90 days'), ?, ?)`,
         { replacements: [cupom[0], cupom[1], cupom[2], cupom[3], cupom[4], cupom[5]] }
       );
+    }
+
+    // 8. Pedidos de exemplo
+    console.log('📦 Inserindo pedidos de exemplo...');
+    try {
+      const pedidosExemplo = await gerarPedidosExemplo(sequelize);
+      
+      for (const pedido of pedidosExemplo) {
+        // Inserir pedido
+        await sequelize.query(
+          `INSERT OR IGNORE INTO pedidos (
+            id_cliente, id_endereco_entrega, numero_pedido, data_pedido, metodo_pagamento,
+            status_pedido, status_pagamento, valor_subtotal, valor_desconto, valor_frete, valor_total, id_cupom
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          {
+            replacements: [
+              pedido.cliente,
+              pedido.endereco,
+              pedido.numeroPedido,
+              pedido.dataPedido,
+              pedido.metodoPagamento,
+              pedido.statusPedido,
+              pedido.statusPagamento,
+              pedido.valorSubtotal,
+              pedido.valorDesconto,
+              pedido.valorFrete,
+              pedido.valorTotal,
+              pedido.idCupom
+            ]
+          }
+        );
+
+        // Buscar ID do pedido criado
+        const [pedidoCriadoArray]: any = await sequelize.query(
+          'SELECT id_pedido FROM pedidos WHERE numero_pedido = ?',
+          {
+            replacements: [pedido.numeroPedido],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+
+        const pedidoId = Array.isArray(pedidoCriadoArray) && pedidoCriadoArray.length > 0 
+          ? pedidoCriadoArray[0].id_pedido 
+          : null;
+
+        if (pedidoId) {
+          // Inserir itens do pedido
+          for (const item of pedido.itens) {
+            const [produtoArray]: any = await sequelize.query(
+              'SELECT preco_unitario FROM produtos WHERE id_produto = ?',
+              {
+                replacements: [item.id_produto],
+                type: sequelize.QueryTypes.SELECT
+              }
+            );
+
+            const produto = Array.isArray(produtoArray) && produtoArray.length > 0 ? produtoArray[0] : null;
+            if (produto) {
+              const subtotal = Number(produto.preco_unitario) * item.quantidade;
+              await sequelize.query(
+                `INSERT OR IGNORE INTO item_pedido (
+                  id_pedido, id_produto, quantidade, preco_unitario_no_pedido, subtotal
+                ) VALUES (?, ?, ?, ?, ?)`,
+                {
+                  replacements: [
+                    pedidoId,
+                    item.id_produto,
+                    item.quantidade,
+                    produto.preco_unitario,
+                    subtotal
+                  ]
+                }
+              );
+            }
+          }
+        }
+      }
+      console.log(`✅ ${pedidosExemplo.length} pedidos inseridos`);
+    } catch (pedidoError: any) {
+      console.warn('⚠️ Erro ao inserir pedidos (continuando...):', pedidoError.message);
     }
     
     console.log('✅ Banco populado com sucesso!');
@@ -261,16 +343,18 @@ router.post('/populate', async (_req: Request, res: Response) => {
     const [countProdutos]: any = await sequelize.query('SELECT COUNT(*) as count FROM produtos');
     const [countCupons]: any = await sequelize.query('SELECT COUNT(*) as count FROM cupons_desconto');
     const [countEnderecos]: any = await sequelize.query('SELECT COUNT(*) as count FROM enderecos');
+    const [countPedidos]: any = await sequelize.query('SELECT COUNT(*) as count FROM pedidos');
     
     return res.json({
       success: true,
       message: 'Banco de dados populado com sucesso!',
       data: {
-        usuarios: countUsuarios[0].count,
+        usuarios: countUsuarios[0]?.count || 0,
         categorias: 5,
-        produtos: countProdutos[0].count,
-        cupons: countCupons[0].count,
-        enderecos: countEnderecos[0].count
+        produtos: countProdutos[0]?.count || 0,
+        cupons: countCupons[0]?.count || 0,
+        enderecos: countEnderecos[0]?.count || 0,
+        pedidos: countPedidos[0]?.count || 0
       }
     });
   } catch (error: any) {

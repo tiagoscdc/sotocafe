@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import {
   Box,
   Typography,
@@ -71,6 +71,8 @@ const Checkout = () => {
   }
 
   const enderecoPrincipal = enderecos?.find((e: any) => e.endereco_principal === 1) || enderecos?.[0]
+  const [frete, setFrete] = useState(0)
+  const [freteCarregando, setFreteCarregando] = useState(false)
 
   const calcularSubtotal = () => {
     if (!carrinho?.itens) return 0
@@ -96,8 +98,42 @@ const Checkout = () => {
   }
 
   const calcularTotal = () => {
-    return calcularSubtotal() - calcularDesconto() // Frete será calculado depois
+    return calcularSubtotal() - calcularDesconto() + frete
   }
+
+  // Calcular frete quando endereço ou carrinho mudar
+  useEffect(() => {
+    if (enderecoPrincipal && carrinho?.itens && carrinho.itens.length > 0) {
+      setFreteCarregando(true)
+      
+      // Calcular peso total e subtotal
+      const pesoTotal = carrinho.itens.reduce((total: number, item: any) => {
+        // Assumir peso padrão de 500g se não tiver peso
+        const pesoItem = item.peso_gramas || 500
+        return total + (pesoItem * item.quantidade)
+      }, 0)
+      
+      const subtotal = calcularSubtotal()
+
+      api.post('/frete/calcular', {
+        cep: enderecoPrincipal.cep,
+        peso_total_gramas: pesoTotal,
+        valor_subtotal: subtotal
+      })
+        .then((response) => {
+          setFrete(response.data.data.valor_frete || 0)
+          setFreteCarregando(false)
+        })
+        .catch((error) => {
+          console.error('Erro ao calcular frete:', error)
+          // Calcular frete padrão baseado no subtotal
+          setFrete(subtotal >= 200 ? 0 : 15.00)
+          setFreteCarregando(false)
+        })
+    } else {
+      setFrete(0)
+    }
+  }, [enderecoPrincipal, carrinho])
 
   const handleFinalizar = () => {
     if (!enderecoPrincipal) {
@@ -107,9 +143,9 @@ const Checkout = () => {
     }
 
     if (metodoPagamento === 'Pix') {
-      navigate('/pagamento/pix', { state: { carrinho, endereco: enderecoPrincipal, total: calcularTotal(), cupomAplicado } })
+      navigate('/pagamento/pix', { state: { carrinho, endereco: enderecoPrincipal, total: calcularTotal(), cupomAplicado, frete } })
     } else if (metodoPagamento === 'Boleto') {
-      navigate('/pagamento/boleto', { state: { carrinho, endereco: enderecoPrincipal, total: calcularTotal(), cupomAplicado } })
+      navigate('/pagamento/boleto', { state: { carrinho, endereco: enderecoPrincipal, total: calcularTotal(), cupomAplicado, frete } })
     } else {
       alert('Método de pagamento ainda não implementado')
     }
@@ -244,7 +280,9 @@ const Checkout = () => {
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography>Frete:</Typography>
-                <Typography>Calculado no pagamento</Typography>
+                <Typography>
+                  {freteCarregando ? 'Calculando...' : `R$ ${frete.toFixed(2)}`}
+                </Typography>
               </Box>
 
               <Divider sx={{ my: 2 }} />

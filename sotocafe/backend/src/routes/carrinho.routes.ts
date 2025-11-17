@@ -71,6 +71,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           p.slug,
           p.preco_unitario,
           p.estoque_atual,
+          p.peso_gramas,
           (SELECT url_imagem FROM imagens_produto 
            WHERE id_produto = p.id_produto AND principal = 1 
            LIMIT 1) as imagem
@@ -341,14 +342,48 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) =>
   try {
     const userId = req.user?.id;
 
-    await sequelize.query(
-      `DELETE FROM item_carrinho 
-       WHERE id_carrinho IN (SELECT id_carrinho FROM carrinho WHERE id_usuario = ?)`,
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado'
+      });
+    }
+
+    // Buscar carrinho do usuário
+    const [carrinhosArray]: any = await sequelize.query(
+      'SELECT id_carrinho FROM carrinho WHERE id_usuario = ?',
       {
         replacements: [userId],
-        type: sequelize.QueryTypes.DELETE
+        type: sequelize.QueryTypes.SELECT
       }
     );
+
+    if (carrinhosArray && Array.isArray(carrinhosArray) && carrinhosArray.length > 0) {
+      const carrinhoId = carrinhosArray[0].id_carrinho;
+      
+      // Deletar itens do carrinho
+      await sequelize.query(
+        'DELETE FROM item_carrinho WHERE id_carrinho = ?',
+        {
+          replacements: [carrinhoId],
+          type: sequelize.QueryTypes.DELETE
+        }
+      );
+      
+      // Também deletar o carrinho (opcional, mas ajuda a garantir limpeza)
+      try {
+        await sequelize.query(
+          'DELETE FROM carrinho WHERE id_carrinho = ?',
+          {
+            replacements: [carrinhoId],
+            type: sequelize.QueryTypes.DELETE
+          }
+        );
+      } catch (e) {
+        // Ignorar erro se não conseguir deletar o carrinho
+        console.warn('Aviso: não foi possível deletar o carrinho:', e);
+      }
+    }
 
     res.json({
       success: true,

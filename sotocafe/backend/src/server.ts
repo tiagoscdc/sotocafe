@@ -16,6 +16,7 @@ import carrinhoRoutes from './routes/carrinho.routes';
 import usuarioRoutes from './routes/usuario.routes';
 import seedRoutes from './routes/seed.routes';
 import cupomRoutes from './routes/cupom.routes';
+import freteRoutes from './routes/frete.routes';
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ app.use('/api/carrinho', carrinhoRoutes);
 app.use('/api/usuarios', usuarioRoutes);
 app.use('/api/seed', seedRoutes);
 app.use('/api/cupons', cupomRoutes);
+app.use('/api/frete', freteRoutes);
 
 // Middleware de erro
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {

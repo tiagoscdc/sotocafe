@@ -80,3 +80,119 @@ export const cuponsExpandidos: Array<[string, string, number, number, number, nu
   ['PRIMEIRA', 'Valor_Fixo', 15.00, 50.00, 1, 1],
 ];
 
+// Função para gerar pedidos de exemplo
+export const gerarPedidosExemplo = async (sequelize: any) => {
+  // Buscar usuários clientes
+  const [clientesArray]: any = await sequelize.query(
+    "SELECT id_usuario FROM usuarios WHERE tipoUsuario = 'Cliente' LIMIT 5"
+  );
+  const clientes = Array.isArray(clientesArray) ? clientesArray : [];
+  
+  // Garantir que clientes é um array de objetos
+  const clientesFormatados = clientes.map((c: any) => ({
+    id_usuario: c.id_usuario || c
+  }));
+
+  // Buscar produtos
+  const [produtosArray]: any = await sequelize.query(
+    'SELECT id_produto, preco_unitario, peso_gramas FROM produtos WHERE ativo = 1 LIMIT 10'
+  );
+  const produtos = Array.isArray(produtosArray) ? produtosArray : [];
+
+  // Buscar endereços
+  const [enderecosArray]: any = await sequelize.query(
+    'SELECT id_endereco, id_usuario, cep FROM enderecos'
+  );
+  const enderecos = Array.isArray(enderecosArray) ? enderecosArray : [];
+
+  // Buscar cupons
+  const [cuponsArray]: any = await sequelize.query(
+    "SELECT id_cupom FROM cupons_desconto WHERE ativo = 1 LIMIT 3"
+  );
+  const cupons = Array.isArray(cuponsArray) ? cuponsArray : [];
+
+  const pedidos = [];
+
+  for (let i = 0; i < Math.min(5, clientesFormatados.length); i++) {
+    const cliente = clientesFormatados[i];
+    const clienteId = cliente.id_usuario;
+    const enderecoCliente = enderecos.find((e: any) => e.id_usuario === clienteId);
+    
+    if (!enderecoCliente || produtos.length === 0) continue;
+
+    // Selecionar 1-3 produtos aleatórios
+    const numItens = Math.floor(Math.random() * 3) + 1;
+    const produtosSelecionados = produtos.slice(0, numItens);
+    
+    // Calcular valores
+    let valorSubtotal = 0;
+    let pesoTotal = 0;
+    const itensPedido: any[] = [];
+
+    for (const produto of produtosSelecionados) {
+      const quantidade = Math.floor(Math.random() * 3) + 1;
+      valorSubtotal += Number(produto.preco_unitario) * quantidade;
+      pesoTotal += (Number(produto.peso_gramas) || 0) * quantidade;
+      itensPedido.push({ id_produto: produto.id_produto, quantidade });
+    }
+
+    // Aplicar cupom aleatório (50% de chance)
+    let valorDesconto = 0;
+    let idCupom = null;
+    if (Math.random() > 0.5 && cupons.length > 0) {
+      const cupomAleatorio = cupons[Math.floor(Math.random() * cupons.length)];
+      // Buscar cupom completo para calcular desconto corretamente
+      const [cupomCompletoArray]: any = await sequelize.query(
+        'SELECT * FROM cupons_desconto WHERE id_cupom = ?',
+        { replacements: [cupomAleatorio.id_cupom], type: sequelize.QueryTypes.SELECT }
+      );
+      const cupomCompleto = Array.isArray(cupomCompletoArray) && cupomCompletoArray.length > 0 ? cupomCompletoArray[0] : null;
+      
+      if (cupomCompleto && (!cupomCompleto.valor_minimo_pedido || valorSubtotal >= cupomCompleto.valor_minimo_pedido)) {
+        idCupom = cupomCompleto.id_cupom;
+        if (cupomCompleto.tipo_desconto === 'Percentual') {
+          valorDesconto = (valorSubtotal * cupomCompleto.valor_desconto) / 100;
+        } else {
+          valorDesconto = Math.min(cupomCompleto.valor_desconto, valorSubtotal);
+        }
+      }
+    }
+
+    // Calcular frete simplificado
+    const valorFrete = valorSubtotal >= 200 ? 0 : 15.00;
+    const valorTotal = valorSubtotal - valorDesconto + valorFrete;
+
+    // Gerar número de pedido
+    const dataPedido = new Date();
+    dataPedido.setDate(dataPedido.getDate() - Math.floor(Math.random() * 30)); // Pedidos dos últimos 30 dias
+    const numeroPedido = `PED-${dataPedido.toISOString().split('T')[0].replace(/-/g, '')}-${String(i + 1).padStart(6, '0')}`;
+
+    // Método de pagamento aleatório
+    const metodos = ['Pix', 'Boleto', 'Cartao_Credito'];
+    const metodoPagamento = metodos[Math.floor(Math.random() * metodos.length)];
+
+    // Status aleatório
+    const statuses = ['Confirmado', 'Em_Preparacao', 'Enviado', 'Entregue'];
+    const statusPedido = statuses[Math.floor(Math.random() * statuses.length)];
+    const statusPagamento = statusPedido === 'Entregue' ? 'Aprovado' : 'Pendente';
+
+    pedidos.push({
+      cliente: clienteId,
+      endereco: enderecoCliente.id_endereco,
+      numeroPedido,
+      dataPedido: dataPedido.toISOString(),
+      metodoPagamento,
+      statusPedido,
+      statusPagamento,
+      valorSubtotal,
+      valorDesconto,
+      valorFrete,
+      valorTotal,
+      idCupom,
+      itens: itensPedido
+    });
+  }
+
+  return pedidos;
+};
+

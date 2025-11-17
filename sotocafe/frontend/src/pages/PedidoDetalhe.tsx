@@ -31,6 +31,8 @@ const PedidoDetalhe = () => {
       const response = await api.get(`/pedidos/${id}`)
       return response.data.data
     },
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   })
 
   if (isLoading) {
