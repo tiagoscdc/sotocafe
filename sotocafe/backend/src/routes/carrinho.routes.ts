@@ -385,13 +385,13 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) =>
       }
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Carrinho limpo'
     });
   } catch (error: any) {
     console.error('Erro ao limpar carrinho:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao limpar carrinho',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
