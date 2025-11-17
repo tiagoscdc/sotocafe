@@ -8,6 +8,13 @@ const router = Router();
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado'
+      });
+    }
 
     // Buscar ou criar carrinho
     const [carrinhosArray]: any = await sequelize.query(
@@ -84,12 +91,30 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     console.error('Error details:', {
       message: error.message,
       code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      path: error.path,
       userId: req.user?.id
     });
+    
+    // Verificar se é erro de permissão de escrita (comum no Vercel)
+    if (error.message?.includes('readonly') || error.message?.includes('EACCES') || error.code === 'EACCES' || error.code === 'EROFS') {
+      return res.status(500).json({
+        success: false,
+        message: 'Erro de permissão: O sistema de arquivos pode ser somente leitura. No Vercel, o SQLite tem limitações.',
+        error: 'SQLite read-only filesystem error',
+        instrucoes: [
+          'O SQLite no Vercel pode ter limitações de escrita',
+          'Os dados podem ser temporários e resetados a cada deploy',
+          'Para produção, considere usar um banco de dados hospedado'
+        ]
+      });
+    }
+    
     return res.status(500).json({
       success: false,
       message: 'Erro ao buscar carrinho',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor'
     });
   }
 });
@@ -99,8 +124,14 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
   const userId = req.user?.id;
   const { id_produto, quantidade } = req.body;
   
+  if (!userId) {
+    return res.status(401).json({
+      success: false,
+      message: 'Usuário não autenticado'
+    });
+  }
+  
   try {
-
     if (!id_produto || !quantidade || quantidade <= 0) {
       return res.status(400).json({
         success: false,
@@ -211,14 +242,32 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
     console.error('Error details:', {
       message: error.message,
       code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      path: error.path,
       userId: userId,
       id_produto: id_produto,
       quantidade: quantidade
     });
+    
+    // Verificar se é erro de permissão de escrita (comum no Vercel)
+    if (error.message?.includes('readonly') || error.message?.includes('EACCES') || error.code === 'EACCES' || error.code === 'EROFS') {
+      return res.status(500).json({
+        success: false,
+        message: 'Erro de permissão: O sistema de arquivos pode ser somente leitura. No Vercel, o SQLite tem limitações.',
+        error: 'SQLite read-only filesystem error',
+        instrucoes: [
+          'O SQLite no Vercel pode ter limitações de escrita',
+          'Os dados podem ser temporários e resetados a cada deploy',
+          'Para produção, considere usar um banco de dados hospedado'
+        ]
+      });
+    }
+    
     return res.status(500).json({
       success: false,
       message: 'Erro ao adicionar item ao carrinho',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor'
     });
   }
 });

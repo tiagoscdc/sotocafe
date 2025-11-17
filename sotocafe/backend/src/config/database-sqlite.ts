@@ -1,14 +1,23 @@
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
-// Criar diretório de dados se não existir
-const dbDir = path.join(__dirname, '../../data');
-if (!fs.existsSync(dbDir)) {
+// No Vercel, usar /tmp que é writable. Em desenvolvimento, usar diretório local
+const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
+const dbDir = isVercel 
+  ? '/tmp'  // Vercel permite escrita em /tmp
+  : path.join(__dirname, '../../data');
+
+// Criar diretório de dados se não existir (apenas em desenvolvimento)
+if (!isVercel && !fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir, { recursive: true });
 }
 
 const dbPath = path.join(dbDir, 'soto_cafe.db');
+
+console.log('📁 SQLite Database Path:', dbPath);
+console.log('🌍 Environment:', isVercel ? 'Vercel/Production' : 'Development');
 
 // Criar conexão SQLite
 const db: DatabaseType = new Database(dbPath);
