@@ -27,7 +27,9 @@ const ProdutoDetalhe = () => {
       return response.data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['carrinho'] })
+      // Invalidar e refetch para garantir que os dados estejam atualizados
+      queryClient.invalidateQueries({ queryKey: ['carrinho'], exact: true })
+      queryClient.refetchQueries({ queryKey: ['carrinho'], exact: true })
       alert('Produto adicionado ao carrinho!')
     },
     onError: (error: any) => {

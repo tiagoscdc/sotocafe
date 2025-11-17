@@ -197,10 +197,16 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
       });
     }
 
-    // Buscar ou criar carrinho
+    // Buscar ou criar carrinho (garantir que sempre use o mesmo carrinho ativo)
+    // Primeiro, buscar carrinho que tenha itens ou seja o mais recente
     const [carrinhosArray2]: any = await sequelize.query(
-      `SELECT * FROM carrinho WHERE id_usuario = ? 
-       ORDER BY data_criacao DESC LIMIT 1`,
+      `SELECT c.* FROM carrinho c
+       LEFT JOIN item_carrinho ic ON c.id_carrinho = ic.id_carrinho
+       WHERE c.id_usuario = ?
+       GROUP BY c.id_carrinho
+       HAVING COUNT(ic.id_item_carrinho) > 0
+       ORDER BY c.data_criacao DESC
+       LIMIT 1`,
       {
         replacements: [userId],
         type: sequelize.QueryTypes.SELECT
@@ -209,6 +215,19 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
     
     let carrinho = Array.isArray(carrinhosArray2) && carrinhosArray2.length > 0 ? carrinhosArray2[0] : null;
 
+    // Se não encontrou carrinho com itens, buscar qualquer carrinho do usuário
+    if (!carrinho) {
+      const [carrinhosVaziosArray]: any = await sequelize.query(
+        `SELECT * FROM carrinho WHERE id_usuario = ? ORDER BY data_criacao DESC LIMIT 1`,
+        {
+          replacements: [userId],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      carrinho = Array.isArray(carrinhosVaziosArray) && carrinhosVaziosArray.length > 0 ? carrinhosVaziosArray[0] : null;
+    }
+
+    // Se ainda não tem carrinho, criar um novo
     if (!carrinho) {
       await sequelize.query(
         `INSERT INTO carrinho (id_usuario) VALUES (?)`,

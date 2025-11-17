@@ -12,8 +12,9 @@ const Pedidos = () => {
       const response = await api.get('/pedidos')
       return response.data.data || []
     },
-    refetchOnWindowFocus: true,
-    staleTime: 0, // Sempre buscar dados atualizados
+    refetchOnWindowFocus: false,
+    staleTime: 30000, // Cache por 30 segundos
+    cacheTime: 300000, // Manter em cache por 5 minutos
   })
 
   if (isLoading) {

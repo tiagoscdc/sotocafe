@@ -71,9 +71,12 @@ const PagamentoPix = () => {
         // Mesmo com erro, continuar
       }
       
-      // Invalidar e refetch pedidos
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] })
-      queryClient.refetchQueries({ queryKey: ['pedidos'] })
+      // Invalidar e refetch pedidos (usar exact para não afetar outras queries)
+      queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
+      // Aguardar um pouco antes de refetch para garantir que o pedido foi criado
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['pedidos'], exact: true })
+      }, 500)
       
       alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
       navigate('/pedidos')

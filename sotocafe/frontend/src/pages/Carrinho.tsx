@@ -27,6 +27,8 @@ const Carrinho = () => {
     },
     enabled: !!token, // Só executa se tiver token
     retry: 1,
+    refetchOnWindowFocus: false, // Evitar refetch desnecessário
+    staleTime: 10000, // Cache por 10 segundos
   })
 
   const removerItemMutation = useMutation({
