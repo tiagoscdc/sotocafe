@@ -35,7 +35,7 @@ Sistema completo de e-commerce desenvolvido para venda de cafés gourmet, inclui
 ## 📁 Estrutura do Projeto
 
 ```
-SISTEMA SOTO CAFE/
+sotocafe/
 ├── backend/                 # API Backend
 │   ├── src/
 │   │   ├── config/         # Configurações (banco, etc)
@@ -74,7 +74,7 @@ SISTEMA SOTO CAFE/
 
 ```bash
 git clone <url-do-repositorio>
-cd "SISTEMA SOTO CAFE"
+cd sotocafe
 ```
 
 ### 2. Instale as dependências do Backend

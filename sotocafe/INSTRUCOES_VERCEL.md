@@ -8,7 +8,7 @@
 
 2. **Framework Preset**: `Other` (ou deixe em branco)
 
-3. **Root Directory**: `SISTEMA SOTO CAFE`
+3. **Root Directory**: `sotocafe`
 
 4. **Build Command**: *(DEIXE EM BRANCO)* - O `vercel.json` já configura
 

@@ -59,7 +59,7 @@ router.post('/populate', async (_req: Request, res: Response) => {
       if (e.message.includes('no such table')) {
         console.log('📋 Tabelas não existem. Executando schema...');
         // Importar e executar schema
-        const dbModule = await import('../config/database-sqlite');
+        const dbModule = await import('../config/database-sqlite.js');
         const db = dbModule.db;
         const fs = require('fs');
         const path = require('path');

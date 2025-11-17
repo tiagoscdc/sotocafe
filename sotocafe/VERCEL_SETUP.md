@@ -17,9 +17,9 @@ Other
 
 ### 3. **Root Directory**
 ```
-SISTEMA SOTO CAFE
+sotocafe
 ```
-*(Certifique-se de que está exatamente assim, com espaços)*
+*(O diretório foi renomeado para evitar problemas com espaços no nome das funções serverless)*
 
 ### 4. **Build Command**
 ```
