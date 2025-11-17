@@ -110,9 +110,38 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const user = users[0];
+    
+    // Debug: verificar estrutura do usuário
+    console.log('Usuário encontrado:', {
+      id: user.id_usuario,
+      email: user.email,
+      temSenhaHash: !!user.senha_hash,
+      tipoUsuario: user.tipo_usuario,
+      status: user.status
+    });
+    
+    // Verificar se o usuário tem senha_hash
+    if (!user.senha_hash) {
+      console.error('Usuário sem senha_hash:', user.email);
+      return res.status(500).json({
+        success: false,
+        message: 'Erro: usuário sem senha configurada'
+      });
+    }
 
     // Verificar senha
-    const senhaValida = await bcrypt.compare(senha, user.senha_hash);
+    let senhaValida = false;
+    try {
+      senhaValida = await bcrypt.compare(senha, user.senha_hash);
+    } catch (bcryptError: any) {
+      console.error('Erro ao comparar senha:', bcryptError.message);
+      console.error('Hash recebido:', user.senha_hash?.substring(0, 20) + '...');
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao verificar senha',
+        error: process.env.NODE_ENV === 'development' ? bcryptError.message : undefined
+      });
+    }
     if (!senhaValida) {
       return res.status(401).json({
         success: false,
@@ -128,27 +157,46 @@ router.post('/login', async (req: Request, res: Response) => {
       });
     }
 
-    // Atualizar último acesso
-    await sequelize.query(
-      'UPDATE usuarios SET data_ultimo_acesso = CURRENT_TIMESTAMP WHERE id_usuario = ?',
-      {
-        replacements: [user.id_usuario],
-        type: sequelize.QueryTypes.UPDATE
-      }
-    );
+    // Atualizar último acesso (não crítico se falhar)
+    try {
+      await sequelize.query(
+        'UPDATE usuarios SET data_ultimo_acesso = CURRENT_TIMESTAMP WHERE id_usuario = ?',
+        {
+          replacements: [user.id_usuario],
+          type: sequelize.QueryTypes.UPDATE
+        }
+      );
+    } catch (updateError: any) {
+      // Não bloquear o login se o update falhar (pode ser problema de permissão no Vercel)
+      console.warn('⚠️ Erro ao atualizar último acesso (não crítico):', updateError.message);
+    }
 
     // Gerar token JWT
     const jwtSecret = process.env.JWT_SECRET || 'secret';
+    if (!jwtSecret || jwtSecret === 'secret') {
+      console.warn('⚠️ JWT_SECRET não configurado ou usando valor padrão inseguro');
+    }
     const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-    const token = jwt.sign(
-      {
-        id: user.id_usuario,
-        email: user.email,
-        tipoUsuario: user.tipo_usuario
-      },
-      jwtSecret,
-      { expiresIn } as jwt.SignOptions
-    );
+    
+    let token: string;
+    try {
+      token = jwt.sign(
+        {
+          id: user.id_usuario,
+          email: user.email,
+          tipoUsuario: user.tipo_usuario
+        },
+        jwtSecret,
+        { expiresIn } as jwt.SignOptions
+      );
+    } catch (jwtError: any) {
+      console.error('Erro ao gerar token JWT:', jwtError.message);
+      return res.status(500).json({
+        success: false,
+        message: 'Erro ao gerar token de autenticação',
+        error: process.env.NODE_ENV === 'development' ? jwtError.message : undefined
+      });
+    }
 
     return res.json({
       success: true,
@@ -165,10 +213,17 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro no login:', error);
+    console.error('Stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      name: error.name
+    });
+    
     return res.status(500).json({
       success: false,
       message: 'Erro ao fazer login',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor'
     });
   }
 });

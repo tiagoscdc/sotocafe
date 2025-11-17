@@ -105,6 +105,9 @@ router.post('/populate', async (_req: Request, res: Response) => {
     // Limpar dados existentes (SQLite não suporta TRUNCATE CASCADE, usar DELETE)
     console.log('🧹 Limpando dados existentes...');
     try {
+      // Desabilitar foreign keys temporariamente para permitir DELETE
+      await sequelize.query('PRAGMA foreign_keys = OFF');
+      
       await sequelize.query('DELETE FROM item_pedido');
       await sequelize.query('DELETE FROM pedidos');
       await sequelize.query('DELETE FROM item_carrinho');
@@ -116,21 +119,41 @@ router.post('/populate', async (_req: Request, res: Response) => {
       await sequelize.query('DELETE FROM produtos');
       await sequelize.query('DELETE FROM enderecos');
       await sequelize.query('DELETE FROM usuarios');
+      
+      // Reabilitar foreign keys
+      await sequelize.query('PRAGMA foreign_keys = ON');
+      
       // Manter categorias e configurações de frete (dados iniciais)
+      console.log('✅ Dados existentes limpos');
     } catch (e: any) {
+      // Reabilitar foreign keys em caso de erro
+      try {
+        await sequelize.query('PRAGMA foreign_keys = ON');
+      } catch {}
+      
       // Ignorar erros de tabela não existe (primeira execução)
-      if (!e.message.includes('no such table')) {
-        throw e;
+      if (e.message?.includes('no such table')) {
+        console.log('⚠️ Algumas tabelas não existem ainda, continuando...');
+      } else {
+        console.error('⚠️ Erro ao limpar dados existentes:', e.message);
+        // Continuar mesmo com erro (pode ser que não precise limpar)
       }
     }
 
     // 1. Usuários (SQLite usa 1 para true, 0 para false)
     console.log('👤 Inserindo usuários...');
     for (const usuario of usuariosExpandidos) {
-      await sequelize.query(
-        `INSERT INTO usuarios (nome, email, senha_hash, telefone, tipo_usuario, status, email_verificado) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        { replacements: [usuario[0], usuario[1], senhaHash, usuario[2], usuario[3], 'Ativo', 1] }
-      );
+      try {
+        await sequelize.query(
+          `INSERT OR IGNORE INTO usuarios (nome, email, senha_hash, telefone, tipo_usuario, status, email_verificado) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          { replacements: [usuario[0], usuario[1], senhaHash, usuario[2], usuario[3], 'Ativo', 1] }
+        );
+      } catch (e: any) {
+        // Ignorar erros de duplicação
+        if (!e.message?.includes('UNIQUE constraint') && !e.message?.includes('duplicate')) {
+          console.warn('⚠️ Erro ao inserir usuário:', usuario[1], e.message);
+        }
+      }
     }
 
     // 2. Categorias (verificar se já existem)
@@ -253,10 +276,30 @@ router.post('/populate', async (_req: Request, res: Response) => {
   } catch (error: any) {
     console.error('❌ Erro ao popular banco:', error);
     console.error('Stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno
+    });
+    
+    // Verificar se é erro de permissão de escrita (comum no Vercel)
+    if (error.message?.includes('readonly') || error.message?.includes('EACCES') || error.code === 'EACCES') {
+      return res.status(500).json({
+        success: false,
+        message: 'Erro de permissão: O sistema de arquivos pode ser somente leitura. No Vercel, o SQLite tem limitações. Considere usar um banco de dados hospedado para produção.',
+        error: 'SQLite read-only filesystem error',
+        instrucoes: [
+          'O SQLite no Vercel pode ter limitações de escrita',
+          'Para produção, considere usar PostgreSQL, MySQL ou outro banco hospedado',
+          'Os dados podem ser temporários e resetados a cada deploy'
+        ]
+      });
+    }
+    
     return res.status(500).json({
       success: false,
       message: 'Erro ao popular banco de dados',
-      error: error.message,
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
