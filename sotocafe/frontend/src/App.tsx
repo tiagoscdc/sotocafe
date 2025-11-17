@@ -8,6 +8,7 @@ import Carrinho from './pages/Carrinho'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Pedidos from './pages/Pedidos'
+import PedidoDetalhe from './pages/PedidoDetalhe'
 import PopularBanco from './pages/PopularBanco'
 import Perfil from './pages/Perfil'
 import Admin from './pages/Admin'
@@ -29,6 +30,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/pedidos" element={<Pedidos />} />
+          <Route path="/pedidos/:id" element={<PedidoDetalhe />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/checkout" element={<Checkout />} />

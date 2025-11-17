@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { Box, Typography, Card, CardContent, Grid, Chip } from '@mui/material'
+import { Box, Typography, Card, CardContent, Grid, Chip, Button } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
+import { Visibility } from '@mui/icons-material'
 import api from '../services/api'
 
 const Pedidos = () => {
+  const navigate = useNavigate()
   const { data: pedidos, error, isLoading } = useQuery({
     queryKey: ['pedidos'],
     queryFn: async () => {
@@ -49,20 +52,36 @@ const Pedidos = () => {
       {pedidos.map((pedido: any) => (
         <Card key={pedido.id_pedido} sx={{ mb: 2 }}>
           <CardContent>
-            <Grid container spacing={2}>
+            <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6}>
                 <Typography variant="h6">Pedido #{pedido.numero_pedido}</Typography>
                 <Typography variant="body2" color="text.secondary">
                   Data: {new Date(pedido.data_pedido).toLocaleDateString('pt-BR')}
                 </Typography>
+                {pedido.itens && pedido.itens.length > 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    {pedido.itens.length} {pedido.itens.length === 1 ? 'item' : 'itens'}
+                  </Typography>
+                )}
               </Grid>
               <Grid item xs={12} sm={6} sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                 <Chip
                   label={pedido.status_pedido}
                   color={pedido.status_pedido === 'Entregue' ? 'success' : 'primary'}
-                  sx={{ mb: 1 }}
+                  sx={{ mb: 1, display: 'block', width: 'fit-content', ml: { xs: 0, sm: 'auto' } }}
                 />
-                <Typography variant="h6">Total: R$ {Number(pedido.valor_total).toFixed(2)}</Typography>
+                <Typography variant="h6" sx={{ mb: 1 }}>
+                  Total: R$ {Number(pedido.valor_total).toFixed(2)}
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<Visibility />}
+                  onClick={() => navigate(`/pedidos/${pedido.id_pedido}`)}
+                  size="small"
+                  sx={{ display: 'block', ml: { xs: 0, sm: 'auto' }, width: { xs: '100%', sm: 'auto' } }}
+                >
+                  Ver Detalhes
+                </Button>
               </Grid>
             </Grid>
           </CardContent>

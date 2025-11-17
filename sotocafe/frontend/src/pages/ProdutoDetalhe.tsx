@@ -9,6 +9,9 @@ const ProdutoDetalhe = () => {
   const [quantidade, setQuantidade] = useState(1)
   const queryClient = useQueryClient()
   const token = localStorage.getItem('token')
+  const userStr = localStorage.getItem('user')
+  const user = userStr ? JSON.parse(userStr) : null
+  const isAdmin = user?.tipoUsuario === 'Admin' || user?.tipoUsuario === 'Administrador'
 
   const { data: produto } = useQuery({
     queryKey: ['produto', slug],
@@ -75,29 +78,48 @@ const ProdutoDetalhe = () => {
         <Typography variant="body1" sx={{ mb: 2 }}>
           {produto.descricao}
         </Typography>
-        {produto.estoque_atual > 0 ? (
+        
+        {!isAdmin && (
+          <>
+            {produto.estoque_atual > 0 ? (
+              <Box sx={{ mt: 3 }}>
+                <TextField
+                  type="number"
+                  label="Quantidade"
+                  value={quantidade}
+                  onChange={(e) => setQuantidade(Number(e.target.value))}
+                  inputProps={{ min: 1, max: produto.estoque_atual }}
+                  sx={{ mr: 2, width: 120 }}
+                />
+                <Button
+                  variant="contained"
+                  size="large"
+                  onClick={handleAdicionarCarrinho}
+                  disabled={adicionarCarrinhoMutation.isPending}
+                >
+                  Adicionar ao Carrinho
+                </Button>
+              </Box>
+            ) : (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                Produto fora de estoque
+              </Alert>
+            )}
+          </>
+        )}
+        
+        {isAdmin && (
           <Box sx={{ mt: 3 }}>
-            <TextField
-              type="number"
-              label="Quantidade"
-              value={quantidade}
-              onChange={(e) => setQuantidade(Number(e.target.value))}
-              inputProps={{ min: 1, max: produto.estoque_atual }}
-              sx={{ mr: 2, width: 120 }}
-            />
-            <Button
-              variant="contained"
-              size="large"
-              onClick={handleAdicionarCarrinho}
-              disabled={adicionarCarrinhoMutation.isPending}
-            >
-              Adicionar ao Carrinho
-            </Button>
+            <Typography variant="body2" color="text.secondary">
+              <strong>SKU:</strong> {produto.sku}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Estoque:</strong> {produto.estoque_atual} unidades
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Status:</strong> {produto.ativo === 1 ? 'Ativo' : 'Inativo'}
+            </Typography>
           </Box>
-        ) : (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            Produto fora de estoque
-          </Alert>
         )}
       </Grid>
     </Grid>

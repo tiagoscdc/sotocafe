@@ -215,7 +215,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
     const pedidos = Array.isArray(pedidosArray) ? pedidosArray : [];
 
-    // Buscar itens para cada pedido
+    // Buscar itens e cupom para cada pedido
     const pedidosComItens = await Promise.all(
       pedidos.map(async (pedido: any) => {
         const [itensArray]: any = await sequelize.query(
@@ -235,8 +235,22 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
         const itens = Array.isArray(itensArray) ? itensArray : [];
         
+        // Buscar informações do cupom se houver
+        let cupomInfo = null;
+        if (pedido.id_cupom) {
+          const [cupomArray]: any = await sequelize.query(
+            'SELECT codigo_cupom, tipo_desconto, valor_desconto FROM cupons_desconto WHERE id_cupom = ?',
+            {
+              replacements: [pedido.id_cupom],
+              type: sequelize.QueryTypes.SELECT
+            }
+          );
+          cupomInfo = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+        }
+        
         return {
           ...pedido,
+          cupom: cupomInfo,
           itens: itens.map((item: any) => ({
             id_item: item.id_item_pedido,
             produto: {
@@ -308,10 +322,38 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
 
     const itens = Array.isArray(itensArray) ? itensArray : [];
 
+    // Buscar informações do cupom se houver
+    let cupomInfo = null;
+    if (pedido.id_cupom) {
+      const [cupomArray]: any = await sequelize.query(
+        'SELECT codigo_cupom, tipo_desconto, valor_desconto FROM cupons_desconto WHERE id_cupom = ?',
+        {
+          replacements: [pedido.id_cupom],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      cupomInfo = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+    }
+
+    // Buscar informações do endereço de entrega
+    let enderecoInfo = null;
+    if (pedido.id_endereco_entrega) {
+      const [enderecoArray]: any = await sequelize.query(
+        'SELECT * FROM enderecos WHERE id_endereco = ?',
+        {
+          replacements: [pedido.id_endereco_entrega],
+          type: sequelize.QueryTypes.SELECT
+        }
+      );
+      enderecoInfo = Array.isArray(enderecoArray) && enderecoArray.length > 0 ? enderecoArray[0] : null;
+    }
+
     return res.json({
       success: true,
       data: {
         ...pedido,
+        cupom: cupomInfo,
+        endereco: enderecoInfo,
         itens: itens.map((item: any) => ({
           id_item: item.id_item_pedido,
           produto: {
