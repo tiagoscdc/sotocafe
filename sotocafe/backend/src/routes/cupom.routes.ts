@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import sequelize from '../config/database';
-import { authenticateToken, authorizeRoles, AuthRequest } from '../middleware/auth.middleware';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 
