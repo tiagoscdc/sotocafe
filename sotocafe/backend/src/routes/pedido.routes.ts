@@ -161,27 +161,61 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
 
-    const pedidos = await sequelize.query(
-      `SELECT 
-        p.*,
-          (SELECT GROUP_CONCAT('{"id_item":' || ip.id_item_pedido || ',"produto":{"id":' || pr.id_produto || ',"nome":"' || pr.nome_produto || '","slug":"' || pr.slug || '"},"quantidade":' || ip.quantidade || ',"preco_unitario":' || ip.preco_unitario_no_pedido || ',"subtotal":' || ip.subtotal || '}') FROM item_pedido ip
-          INNER JOIN produtos pr ON ip.id_produto = pr.id_produto
-          WHERE ip.id_pedido = p.id_pedido) as itens
-      FROM pedidos p
-      WHERE p.id_cliente = :userId
-      ORDER BY p.data_pedido DESC`,
+    // Buscar pedidos
+    const [pedidosArray]: any = await sequelize.query(
+      `SELECT * FROM pedidos WHERE id_cliente = ? ORDER BY data_pedido DESC`,
       {
-        replacements: { userId },
+        replacements: [userId],
         type: sequelize.QueryTypes.SELECT
       }
     );
 
+    const pedidos = Array.isArray(pedidosArray) ? pedidosArray : [];
+
+    // Buscar itens para cada pedido
+    const pedidosComItens = await Promise.all(
+      pedidos.map(async (pedido: any) => {
+        const [itensArray]: any = await sequelize.query(
+          `SELECT 
+            ip.*,
+            p.nome_produto,
+            p.slug,
+            p.id_produto
+          FROM item_pedido ip
+          INNER JOIN produtos p ON ip.id_produto = p.id_produto
+          WHERE ip.id_pedido = ?`,
+          {
+            replacements: [pedido.id_pedido],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+
+        const itens = Array.isArray(itensArray) ? itensArray : [];
+        
+        return {
+          ...pedido,
+          itens: itens.map((item: any) => ({
+            id_item: item.id_item_pedido,
+            produto: {
+              id: item.id_produto,
+              nome: item.nome_produto,
+              slug: item.slug
+            },
+            quantidade: item.quantidade,
+            preco_unitario: item.preco_unitario_no_pedido,
+            subtotal: item.subtotal
+          }))
+        };
+      })
+    );
+
     res.json({
       success: true,
-      data: pedidos
+      data: pedidosComItens
     });
   } catch (error: any) {
     console.error('Erro ao listar pedidos:', error);
+    console.error('Stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Erro ao listar pedidos',
@@ -196,19 +230,15 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
     const userId = req.user?.id;
     const { id } = req.params;
 
-    const [pedido]: any = await sequelize.query(
-      `SELECT 
-        p.*,
-          (SELECT GROUP_CONCAT('{"id_item":' || ip.id_item_pedido || ',"produto":{"id":' || pr.id_produto || ',"nome":"' || pr.nome_produto || '","slug":"' || pr.slug || '"},"quantidade":' || ip.quantidade || ',"preco_unitario":' || ip.preco_unitario_no_pedido || ',"subtotal":' || ip.subtotal || '}') FROM item_pedido ip
-          INNER JOIN produtos pr ON ip.id_produto = pr.id_produto
-          WHERE ip.id_pedido = p.id_pedido) as itens
-      FROM pedidos p
-      WHERE p.id_pedido = :id AND p.id_cliente = :userId`,
+    const [pedidosArray]: any = await sequelize.query(
+      `SELECT * FROM pedidos WHERE id_pedido = ? AND id_cliente = ?`,
       {
-        replacements: { id, userId },
+        replacements: [id, userId],
         type: sequelize.QueryTypes.SELECT
       }
     );
+
+    const pedido = Array.isArray(pedidosArray) && pedidosArray.length > 0 ? pedidosArray[0] : null;
 
     if (!pedido) {
       return res.status(404).json({
@@ -217,12 +247,44 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       });
     }
 
+    // Buscar itens do pedido
+    const [itensArray]: any = await sequelize.query(
+      `SELECT 
+        ip.*,
+        p.nome_produto,
+        p.slug,
+        p.id_produto
+      FROM item_pedido ip
+      INNER JOIN produtos p ON ip.id_produto = p.id_produto
+      WHERE ip.id_pedido = ?`,
+      {
+        replacements: [pedido.id_pedido],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    const itens = Array.isArray(itensArray) ? itensArray : [];
+
     return res.json({
       success: true,
-      data: pedido
+      data: {
+        ...pedido,
+        itens: itens.map((item: any) => ({
+          id_item: item.id_item_pedido,
+          produto: {
+            id: item.id_produto,
+            nome: item.nome_produto,
+            slug: item.slug
+          },
+          quantidade: item.quantidade,
+          preco_unitario: item.preco_unitario_no_pedido,
+          subtotal: item.subtotal
+        }))
+      }
     });
   } catch (error: any) {
     console.error('Erro ao buscar pedido:', error);
+    console.error('Stack:', error.stack);
     return res.status(500).json({
       success: false,
       message: 'Erro ao buscar pedido',

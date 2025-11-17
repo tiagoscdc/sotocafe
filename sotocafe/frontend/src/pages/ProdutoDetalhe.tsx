@@ -27,6 +27,10 @@ const ProdutoDetalhe = () => {
       queryClient.invalidateQueries({ queryKey: ['carrinho'] })
       alert('Produto adicionado ao carrinho!')
     },
+    onError: (error: any) => {
+      console.error('Erro ao adicionar ao carrinho:', error)
+      alert(error.response?.data?.message || 'Erro ao adicionar produto ao carrinho')
+    },
   })
 
   const handleAdicionarCarrinho = () => {

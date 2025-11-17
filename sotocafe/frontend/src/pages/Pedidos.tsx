@@ -3,13 +3,34 @@ import { Box, Typography, Card, CardContent, Grid, Chip } from '@mui/material'
 import api from '../services/api'
 
 const Pedidos = () => {
-  const { data: pedidos } = useQuery({
+  const { data: pedidos, error, isLoading } = useQuery({
     queryKey: ['pedidos'],
     queryFn: async () => {
       const response = await api.get('/pedidos')
       return response.data.data
     },
   })
+
+  if (isLoading) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5">Carregando pedidos...</Typography>
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5" color="error" gutterBottom>
+          Erro ao carregar pedidos
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {error instanceof Error ? error.message : 'Erro desconhecido'}
+        </Typography>
+      </Box>
+    )
+  }
 
   if (!pedidos || pedidos.length === 0) {
     return (

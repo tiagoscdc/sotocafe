@@ -7,6 +7,9 @@ import api from '../services/api'
 const Header = () => {
   const navigate = useNavigate()
   const token = localStorage.getItem('token')
+  const userStr = localStorage.getItem('user')
+  const user = userStr ? JSON.parse(userStr) : null
+  const isAdmin = user?.tipoUsuario === 'Admin' || user?.tipoUsuario === 'Administrador'
 
   const { data: carrinho } = useQuery({
     queryKey: ['carrinho'],
@@ -37,21 +40,29 @@ const Header = () => {
           </Button>
           {token ? (
             <>
+              {isAdmin && (
+                <Button color="inherit" component={Link} to="/admin">
+                  Painel Admin
+                </Button>
+              )}
               <Button color="inherit" component={Link} to="/pedidos">
                 Meus Pedidos
               </Button>
               <Button color="inherit" startIcon={<Person />}>
-                Perfil
+                {user?.nome || 'Perfil'}
+                {isAdmin && ' (Admin)'}
               </Button>
+              {!isAdmin && (
+                <Button color="inherit" component={Link} to="/carrinho" startIcon={
+                  <Badge badgeContent={quantidadeItens} color="secondary">
+                    <ShoppingCart />
+                  </Badge>
+                }>
+                  Carrinho
+                </Button>
+              )}
               <Button color="inherit" onClick={handleLogout}>
                 Sair
-              </Button>
-              <Button color="inherit" component={Link} to="/carrinho" startIcon={
-                <Badge badgeContent={quantidadeItens} color="secondary">
-                  <ShoppingCart />
-                </Badge>
-              }>
-                Carrinho
               </Button>
             </>
           ) : (

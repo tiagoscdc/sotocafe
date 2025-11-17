@@ -80,6 +80,12 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao buscar carrinho:', error);
+    console.error('Stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      userId: req.user?.id
+    });
     return res.status(500).json({
       success: false,
       message: 'Erro ao buscar carrinho',
@@ -154,6 +160,13 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
         }
       );
       carrinho = Array.isArray(newCarrinhosArray2) && newCarrinhosArray2.length > 0 ? newCarrinhosArray2[0] : null;
+      
+      if (!carrinho || !carrinho.id_carrinho) {
+        return res.status(500).json({
+          success: false,
+          message: 'Erro ao criar carrinho'
+        });
+      }
     }
 
     // Verificar se item já existe no carrinho
@@ -193,6 +206,14 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
     });
   } catch (error: any) {
     console.error('Erro ao adicionar item:', error);
+    console.error('Stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      userId: req.user?.id,
+      id_produto,
+      quantidade
+    });
     return res.status(500).json({
       success: false,
       message: 'Erro ao adicionar item ao carrinho',
