@@ -53,7 +53,7 @@ Adicione as seguintes variáveis de ambiente no Vercel:
 | `JWT_SECRET` | *(gere um valor aleatório)* | **⚠️ OBRIGATÓRIO!** Use o comando abaixo para gerar |
 | `JWT_EXPIRES_IN` | `7d` | Tempo de expiração do token JWT |
 | `CORS_ORIGIN` | *(sua URL do Vercel)* | **⚠️ OBRIGATÓRIO!** Ex: `https://sotocafe-xxxxx.vercel.app` |
-| `VITE_API_URL` | *(sua URL do Vercel + /api)* | **⚠️ OBRIGATÓRIO!** Ex: `https://sotocafe-xxxxx.vercel.app/api` |
+| `VITE_API_URL` | *(sua URL do Vercel + /api)* | **OPCIONAL** - O frontend detecta automaticamente. Ex: `https://sotocafe-xxxxx.vercel.app/api` |
 
 **Nota:** `PORT` não é necessário - o Vercel define automaticamente.
 
@@ -71,10 +71,21 @@ Adicione as seguintes variáveis de ambiente no Vercel:
 1. Após criar o projeto, vá em **Settings** → **Environment Variables**
 2. Clique em **Add New**
 3. Adicione cada variável uma por uma:
-   - **Key**: Nome da variável (ex: `JWT_SECRET`)
-   - **Value**: Valor da variável
+   - **Key**: Nome da variável (ex: `CORS_ORIGIN`) - **⚠️ IMPORTANTE:** 
+     - Use apenas letras, números e underscores
+     - Não use espaços, hífens ou caracteres especiais
+     - Não comece com número
+     - Exemplos válidos: `CORS_ORIGIN`, `JWT_SECRET`, `NODE_ENV`
+     - Exemplos inválidos: `CORS-ORIGIN`, `CORS ORIGIN`, `1CORS_ORIGIN`
+   - **Value**: Valor da variável (ex: `https://sotocafe-xxxxx.vercel.app`)
    - **Environment**: Selecione **Production**, **Preview** e **Development**
 4. Clique em **Save**
+
+**⚠️ DICA:** Se receber erro de "invalid characters", verifique:
+- O nome da variável não tem espaços
+- O nome da variável não tem hífens (use underscore `_`)
+- O nome da variável não começa com número
+- Você está colocando o nome no campo "Key" e o valor no campo "Value"
 
 ---
 
@@ -113,6 +124,11 @@ Adicione as seguintes variáveis de ambiente no Vercel:
 
 ### CORS Error:
 - Atualize `CORS_ORIGIN` com a URL correta do Vercel
+
+### Erro de Conexão (ERR_CONNECTION_REFUSED):
+- O frontend agora detecta automaticamente a URL da API em produção
+- Se ainda houver problemas, defina `VITE_API_URL` no Vercel com a URL completa: `https://seu-projeto.vercel.app/api`
+- Certifique-se de que a variável `CORS_ORIGIN` está configurada corretamente
 
 ---
 
