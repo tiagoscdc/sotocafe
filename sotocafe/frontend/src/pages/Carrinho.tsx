@@ -269,7 +269,12 @@ const Carrinho = () => {
                 <Typography variant="h6">R$ {calcularTotal().toFixed(2)}</Typography>
               </Box>
               
-              <Button variant="contained" fullWidth size="large">
+              <Button 
+                variant="contained" 
+                fullWidth 
+                size="large"
+                onClick={() => navigate('/checkout', { state: { cupomAplicado } })}
+              >
                 Finalizar Compra
               </Button>
             </CardContent>

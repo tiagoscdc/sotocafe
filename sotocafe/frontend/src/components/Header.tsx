@@ -45,9 +45,11 @@ const Header = () => {
                   Painel Admin
                 </Button>
               )}
-              <Button color="inherit" component={Link} to="/pedidos">
-                Meus Pedidos
-              </Button>
+              {!isAdmin && (
+                <Button color="inherit" component={Link} to="/pedidos">
+                  Meus Pedidos
+                </Button>
+              )}
               <Button color="inherit" component={Link} to="/perfil" startIcon={<Person />}>
                 {user?.nome || 'Perfil'}
                 {isAdmin && ' (Admin)'}

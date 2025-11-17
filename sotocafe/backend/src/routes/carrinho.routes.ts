@@ -59,47 +59,38 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     // Buscar itens do carrinho (garantir que carrinho.id_carrinho existe)
     let itens: any[] = [];
     try {
-      // Verificar se existem itens antes de fazer a query complexa
-      const [countResult]: any = await sequelize.query(
-        `SELECT COUNT(*) as total FROM item_carrinho WHERE id_carrinho = ?`,
+      // Tentar buscar itens diretamente - se não houver itens, retornará array vazio
+      const [itensArray]: any = await sequelize.query(
+        `SELECT 
+          ic.id_item_carrinho,
+          ic.id_carrinho,
+          ic.id_produto,
+          ic.quantidade,
+          ic.data_adicao,
+          p.nome_produto,
+          p.slug,
+          p.preco_unitario,
+          p.estoque_atual,
+          (SELECT url_imagem FROM imagens_produto 
+           WHERE id_produto = p.id_produto AND principal = 1 
+           LIMIT 1) as imagem
+        FROM item_carrinho ic
+        INNER JOIN produtos p ON ic.id_produto = p.id_produto
+        WHERE ic.id_carrinho = ? AND p.ativo = 1`,
         {
           replacements: [carrinho.id_carrinho],
           type: sequelize.QueryTypes.SELECT
         }
       );
       
-      const totalItens = Array.isArray(countResult) && countResult.length > 0 ? countResult[0].total : 0;
-      
-      if (totalItens > 0) {
-        // Só fazer a query complexa se houver itens
-        const [itensArray]: any = await sequelize.query(
-          `SELECT 
-            ic.id_item_carrinho,
-            ic.id_carrinho,
-            ic.id_produto,
-            ic.quantidade,
-            ic.data_adicao,
-            p.nome_produto,
-            p.slug,
-            p.preco_unitario,
-            p.estoque_atual,
-            (SELECT url_imagem FROM imagens_produto 
-             WHERE id_produto = p.id_produto AND principal = 1 
-             LIMIT 1) as imagem
-          FROM item_carrinho ic
-          INNER JOIN produtos p ON ic.id_produto = p.id_produto
-          WHERE ic.id_carrinho = ? AND p.ativo = 1`,
-          {
-            replacements: [carrinho.id_carrinho],
-            type: sequelize.QueryTypes.SELECT
-          }
-        );
-        
-        itens = Array.isArray(itensArray) ? itensArray : [];
-      }
+      itens = Array.isArray(itensArray) ? itensArray : [];
     } catch (itensError: any) {
-      // Se der erro ao buscar itens (pode ser que não existam itens ainda), retornar array vazio
-      console.warn('⚠️ Erro ao buscar itens do carrinho (pode ser normal se carrinho estiver vazio):', itensError.message);
+      // Se der erro ao buscar itens (pode ser que não existam itens ainda ou tabela não existe), retornar array vazio
+      if (itensError.message?.includes('no such table')) {
+        console.warn('⚠️ Tabela item_carrinho não existe ainda. Banco pode precisar ser populado.');
+      } else {
+        console.warn('⚠️ Erro ao buscar itens do carrinho (pode ser normal se carrinho estiver vazio):', itensError.message);
+      }
       itens = [];
     }
 

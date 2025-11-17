@@ -63,7 +63,7 @@ const Perfil = () => {
   const { data: enderecos, isLoading } = useQuery({
     queryKey: ['enderecos'],
     queryFn: async () => {
-      const response = await api.get('/usuario/enderecos')
+      const response = await api.get('/usuarios/enderecos')
       return response.data.data
     },
     enabled: !!token
@@ -71,7 +71,7 @@ const Perfil = () => {
 
   const adicionarEnderecoMutation = useMutation({
     mutationFn: async (data: any) => {
-      const response = await api.post('/usuario/enderecos', data)
+      const response = await api.post('/usuarios/enderecos', data)
       return response.data
     },
     onSuccess: () => {
@@ -86,7 +86,7 @@ const Perfil = () => {
 
   const editarEnderecoMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
-      const response = await api.put(`/usuario/enderecos/${id}`, data)
+      const response = await api.put(`/usuarios/enderecos/${id}`, data)
       return response.data
     },
     onSuccess: () => {
@@ -102,7 +102,7 @@ const Perfil = () => {
 
   const removerEnderecoMutation = useMutation({
     mutationFn: async (id: number) => {
-      const response = await api.delete(`/usuario/enderecos/${id}`)
+      const response = await api.delete(`/usuarios/enderecos/${id}`)
       return response.data
     },
     onSuccess: () => {

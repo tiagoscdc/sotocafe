@@ -10,6 +10,10 @@ import Register from './pages/Register'
 import Pedidos from './pages/Pedidos'
 import PopularBanco from './pages/PopularBanco'
 import Perfil from './pages/Perfil'
+import Admin from './pages/Admin'
+import Checkout from './pages/Checkout'
+import PagamentoPix from './pages/PagamentoPix'
+import PagamentoBoleto from './pages/PagamentoBoleto'
 import Footer from './components/Footer'
 
 function App() {
@@ -26,6 +30,10 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/pedidos" element={<Pedidos />} />
           <Route path="/perfil" element={<Perfil />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/pagamento/pix" element={<PagamentoPix />} />
+          <Route path="/pagamento/boleto" element={<PagamentoBoleto />} />
           <Route path="/popular-banco" element={<PopularBanco />} />
         </Routes>
       </Container>
