@@ -140,7 +140,7 @@ router.post('/login', async (req: Request, res: Response) => {
     // Gerar token JWT
     const jwtSecret: string = process.env.JWT_SECRET || 'secret';
     const signOptions: SignOptions = {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d'
+      expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string | number
     };
     const token = jwt.sign(
       {
