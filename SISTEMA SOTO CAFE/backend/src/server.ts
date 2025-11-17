@@ -19,7 +19,6 @@ import seedRoutes from './routes/seed.routes';
 dotenv.config();
 
 const app: Application = express();
-const PORT = process.env.PORT || 3000;
 
 // Middlewares de segurança
 app.use(helmet());

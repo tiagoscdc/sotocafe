@@ -5,8 +5,8 @@
   "description": "Frontend React para E-commerce Soto Café",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "vercel-build": "npm run build",
+    "build": "npx tsc && npx vite build",
+    "vercel-build": "npm install --include=dev && npm run build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
