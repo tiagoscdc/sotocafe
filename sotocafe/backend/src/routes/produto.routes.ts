@@ -187,7 +187,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // Criar produto (admin)
-router.post('/', authenticateToken, authorizeRoles('Administrador'), async (req: Request, res: Response) => {
+router.post('/', authenticateToken, authorizeRoles('Administrador', 'Admin'), async (req: Request, res: Response) => {
   try {
     const {
       nome_produto,
@@ -208,40 +208,183 @@ router.post('/', authenticateToken, authorizeRoles('Administrador'), async (req:
       });
     }
 
-    const [result] = await sequelize.query(
+    await sequelize.query(
       `INSERT INTO produtos (
         nome_produto, descricao, descricao_curta, slug, sku, preco_unitario,
-        id_categoria, estoque_atual, peso_gramas
-      ) VALUES (
-        :nome_produto, :descricao, :descricao_curta, :slug, :sku, :preco_unitario,
-        :id_categoria, :estoque_atual, :peso_gramas
-      ) RETURNING *`,
+        id_categoria, estoque_atual, peso_gramas, ativo
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       {
-        replacements: {
+        replacements: [
           nome_produto,
-          descricao: descricao || null,
-          descricao_curta: descricao_curta || null,
+          descricao || null,
+          descricao_curta || null,
           slug,
           sku,
           preco_unitario,
           id_categoria,
-          estoque_atual: estoque_atual || 0,
-          peso_gramas: peso_gramas || 0
-        },
+          estoque_atual || 0,
+          peso_gramas || 0,
+          1 // ativo
+        ],
         type: sequelize.QueryTypes.INSERT
+      }
+    );
+
+    // Buscar produto recém-criado
+    const [result]: any = await sequelize.query(
+      'SELECT * FROM produtos WHERE slug = ? ORDER BY data_cadastro DESC LIMIT 1',
+      {
+        replacements: [slug],
+        type: sequelize.QueryTypes.SELECT
       }
     );
 
     return res.status(201).json({
       success: true,
       message: 'Produto criado com sucesso',
-      data: result
+      data: Array.isArray(result) && result.length > 0 ? result[0] : null
     });
   } catch (error: any) {
     console.error('Erro ao criar produto:', error);
     return res.status(500).json({
       success: false,
       message: 'Erro ao criar produto',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Atualizar produto (Admin)
+router.put('/:id', authenticateToken, authorizeRoles('Administrador', 'Admin'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const {
+      nome_produto,
+      descricao,
+      descricao_curta,
+      slug,
+      sku,
+      preco_unitario,
+      id_categoria,
+      estoque_atual,
+      peso_gramas,
+      ativo,
+      destaque
+    } = req.body;
+
+    // Verificar se produto existe
+    const [produtoExistente]: any = await sequelize.query(
+      'SELECT * FROM produtos WHERE id_produto = ?',
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    if (!produtoExistente || (Array.isArray(produtoExistente) && produtoExistente.length === 0)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produto não encontrado'
+      });
+    }
+
+    await sequelize.query(
+      `UPDATE produtos SET
+        nome_produto = COALESCE(?, nome_produto),
+        descricao = ?,
+        descricao_curta = ?,
+        slug = COALESCE(?, slug),
+        sku = COALESCE(?, sku),
+        preco_unitario = COALESCE(?, preco_unitario),
+        id_categoria = COALESCE(?, id_categoria),
+        estoque_atual = COALESCE(?, estoque_atual),
+        peso_gramas = COALESCE(?, peso_gramas),
+        ativo = COALESCE(?, ativo),
+        destaque = COALESCE(?, destaque),
+        data_atualizacao = CURRENT_TIMESTAMP
+      WHERE id_produto = ?`,
+      {
+        replacements: [
+          nome_produto,
+          descricao !== undefined ? descricao : null,
+          descricao_curta !== undefined ? descricao_curta : null,
+          slug,
+          sku,
+          preco_unitario,
+          id_categoria,
+          estoque_atual,
+          peso_gramas,
+          ativo !== undefined ? (ativo ? 1 : 0) : null,
+          destaque !== undefined ? (destaque ? 1 : 0) : null,
+          id
+        ],
+        type: sequelize.QueryTypes.UPDATE
+      }
+    );
+
+    // Buscar produto atualizado
+    const [produtoAtualizado]: any = await sequelize.query(
+      'SELECT * FROM produtos WHERE id_produto = ?',
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Produto atualizado com sucesso',
+      data: Array.isArray(produtoAtualizado) && produtoAtualizado.length > 0 ? produtoAtualizado[0] : null
+    });
+  } catch (error: any) {
+    console.error('Erro ao atualizar produto:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao atualizar produto',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Remover produto (Admin) - Soft delete (desativar)
+router.delete('/:id', authenticateToken, authorizeRoles('Administrador', 'Admin'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Verificar se produto existe
+    const [produtoExistente]: any = await sequelize.query(
+      'SELECT * FROM produtos WHERE id_produto = ?',
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    if (!produtoExistente || (Array.isArray(produtoExistente) && produtoExistente.length === 0)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Produto não encontrado'
+      });
+    }
+
+    // Soft delete - desativar produto
+    await sequelize.query(
+      'UPDATE produtos SET ativo = 0, data_atualizacao = CURRENT_TIMESTAMP WHERE id_produto = ?',
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.UPDATE
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Produto removido (desativado) com sucesso'
+    });
+  } catch (error: any) {
+    console.error('Erro ao remover produto:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao remover produto',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

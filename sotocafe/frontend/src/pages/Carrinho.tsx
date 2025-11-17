@@ -1,6 +1,7 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Box, Typography, Button, Card, CardContent, Grid, IconButton } from '@mui/material'
-import { Delete, ShoppingCart } from '@mui/icons-material'
+import { Box, Typography, Button, Card, CardContent, Grid, IconButton, TextField, Alert } from '@mui/material'
+import { Delete, ShoppingCart, CheckCircle } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 
@@ -8,6 +9,9 @@ const Carrinho = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const token = localStorage.getItem('token')
+  const [cupomCodigo, setCupomCodigo] = useState('')
+  const [cupomAplicado, setCupomAplicado] = useState<any>(null)
+  const [cupomErro, setCupomErro] = useState('')
 
   // Hooks devem ser chamados sempre na mesma ordem (regra dos hooks do React)
   const { data: carrinho, error: carrinhoError } = useQuery({
@@ -31,7 +35,8 @@ const Carrinho = () => {
       return response.data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['carrinho'] })
+      // Invalidar apenas a query do carrinho, não outras queries
+      queryClient.invalidateQueries({ queryKey: ['carrinho'], exact: true })
     },
     onError: (error: any) => {
       console.error('Erro ao remover item:', error)
@@ -39,11 +44,60 @@ const Carrinho = () => {
     },
   })
 
-  const calcularTotal = () => {
+  const validarCupomMutation = useMutation({
+    mutationFn: async (codigo: string) => {
+      const response = await api.get(`/cupons/validar/${codigo}`)
+      return response.data.data
+    },
+    onSuccess: (data) => {
+      setCupomAplicado(data)
+      setCupomErro('')
+    },
+    onError: (error: any) => {
+      setCupomErro(error.response?.data?.message || 'Cupom inválido')
+      setCupomAplicado(null)
+    }
+  })
+
+  const handleAplicarCupom = () => {
+    if (!cupomCodigo.trim()) {
+      setCupomErro('Digite um código de cupom')
+      return
+    }
+    validarCupomMutation.mutate(cupomCodigo.trim().toUpperCase())
+  }
+
+  const handleRemoverCupom = () => {
+    setCupomAplicado(null)
+    setCupomCodigo('')
+    setCupomErro('')
+  }
+
+  const calcularSubtotal = () => {
     if (!carrinho?.itens) return 0
     return carrinho.itens.reduce((total: number, item: any) => {
       return total + Number(item.preco_unitario) * item.quantidade
     }, 0)
+  }
+
+  const calcularDesconto = () => {
+    if (!cupomAplicado) return 0
+    const subtotal = calcularSubtotal()
+    
+    // Verificar valor mínimo
+    if (cupomAplicado.valor_minimo_pedido && subtotal < cupomAplicado.valor_minimo_pedido) {
+      return 0
+    }
+
+    if (cupomAplicado.tipo_desconto === 'Percentual') {
+      return (subtotal * cupomAplicado.valor_desconto) / 100
+    } else {
+      return Math.min(cupomAplicado.valor_desconto, subtotal)
+    }
+  }
+
+  const calcularTotal = () => {
+    return calcularSubtotal() - calcularDesconto()
   }
 
   // Verificações condicionais após todos os hooks
@@ -142,18 +196,79 @@ const Carrinho = () => {
               <Typography variant="h6" gutterBottom>
                 Resumo do Pedido
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Typography>Subtotal:</Typography>
-                <Typography>R$ {calcularTotal().toFixed(2)}</Typography>
+              
+              {/* Campo de Cupom */}
+              <Box sx={{ mb: 2 }}>
+                {cupomAplicado ? (
+                  <Alert 
+                    severity="success" 
+                    icon={<CheckCircle />}
+                    action={
+                      <Button size="small" onClick={handleRemoverCupom}>
+                        Remover
+                      </Button>
+                    }
+                    sx={{ mb: 1 }}
+                  >
+                    Cupom {cupomAplicado.codigo_cupom} aplicado!
+                    {cupomAplicado.tipo_desconto === 'Percentual' 
+                      ? ` ${cupomAplicado.valor_desconto}% OFF`
+                      : ` R$ ${cupomAplicado.valor_desconto.toFixed(2)} OFF`}
+                  </Alert>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                    <TextField
+                      size="small"
+                      placeholder="Código do cupom"
+                      value={cupomCodigo}
+                      onChange={(e) => {
+                        setCupomCodigo(e.target.value.toUpperCase())
+                        setCupomErro('')
+                      }}
+                      error={!!cupomErro}
+                      helperText={cupomErro}
+                      fullWidth
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleAplicarCupom()
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outlined"
+                      onClick={handleAplicarCupom}
+                      disabled={validarCupomMutation.isPending}
+                    >
+                      Aplicar
+                    </Button>
+                  </Box>
+                )}
               </Box>
+
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography>Subtotal:</Typography>
+                <Typography>R$ {calcularSubtotal().toFixed(2)}</Typography>
+              </Box>
+              
+              {cupomAplicado && calcularDesconto() > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography color="success.main">Desconto:</Typography>
+                  <Typography color="success.main">
+                    - R$ {calcularDesconto().toFixed(2)}
+                  </Typography>
+                </Box>
+              )}
+              
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                 <Typography>Frete:</Typography>
                 <Typography>Calculado no checkout</Typography>
               </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3, pt: 2, borderTop: 1, borderColor: 'divider' }}>
                 <Typography variant="h6">Total:</Typography>
                 <Typography variant="h6">R$ {calcularTotal().toFixed(2)}</Typography>
               </Box>
+              
               <Button variant="contained" fullWidth size="large">
                 Finalizar Compra
               </Button>

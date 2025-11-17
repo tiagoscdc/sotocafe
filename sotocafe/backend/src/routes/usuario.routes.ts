@@ -9,13 +9,15 @@ router.get('/enderecos', authenticateToken, async (req: AuthRequest, res: Respon
   try {
     const userId = req.user?.id;
 
-    const enderecos = await sequelize.query(
-      'SELECT * FROM enderecos WHERE id_usuario = :userId ORDER BY endereco_principal DESC, data_cadastro DESC',
+    const [enderecosArray]: any = await sequelize.query(
+      'SELECT * FROM enderecos WHERE id_usuario = ? ORDER BY endereco_principal DESC, data_cadastro DESC',
       {
-        replacements: { userId },
+        replacements: [userId],
         type: sequelize.QueryTypes.SELECT
       }
     );
+    
+    const enderecos = Array.isArray(enderecosArray) ? enderecosArray : [];
 
     return res.json({
       success: true,
@@ -47,49 +49,179 @@ router.post('/enderecos', authenticateToken, async (req: AuthRequest, res: Respo
     // Se for principal, desmarcar outros
     if (endereco_principal) {
       await sequelize.query(
-        'UPDATE enderecos SET endereco_principal = false WHERE id_usuario = :userId',
+        'UPDATE enderecos SET endereco_principal = 0 WHERE id_usuario = ?',
         {
-          replacements: { userId },
+          replacements: [userId],
           type: sequelize.QueryTypes.UPDATE
         }
       );
     }
 
-    const [result] = await sequelize.query(
+    await sequelize.query(
       `INSERT INTO enderecos (
         id_usuario, cep, rua, numero, complemento, bairro, cidade, estado,
         tipo_endereco, endereco_principal
-      ) VALUES (
-        :userId, :cep, :rua, :numero, :complemento, :bairro, :cidade, :estado,
-        :tipo_endereco, :endereco_principal
-      ) RETURNING *`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       {
-        replacements: {
+        replacements: [
           userId,
           cep,
           rua,
           numero,
-          complemento: complemento || null,
+          complemento || null,
           bairro,
           cidade,
           estado,
-          tipo_endereco: tipo_endereco || 'Residencial',
-          endereco_principal: endereco_principal || false
-        },
+          tipo_endereco || 'Residencial',
+          endereco_principal ? 1 : 0
+        ],
         type: sequelize.QueryTypes.INSERT
+      }
+    );
+    
+    // Buscar endereço recém-criado
+    const [result]: any = await sequelize.query(
+      'SELECT * FROM enderecos WHERE id_usuario = ? ORDER BY data_cadastro DESC LIMIT 1',
+      {
+        replacements: [userId],
+        type: sequelize.QueryTypes.SELECT
       }
     );
 
     return res.status(201).json({
       success: true,
       message: 'Endereço adicionado com sucesso',
-      data: result
+      data: Array.isArray(result) && result.length > 0 ? result[0] : null
     });
   } catch (error: any) {
     console.error('Erro ao adicionar endereço:', error);
     return res.status(500).json({
       success: false,
       message: 'Erro ao adicionar endereço',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Editar endereço
+router.put('/enderecos/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+    const { cep, rua, numero, complemento, bairro, cidade, estado, tipo_endereco, endereco_principal } = req.body;
+
+    if (!cep || !rua || !numero || !bairro || !cidade || !estado) {
+      return res.status(400).json({
+        success: false,
+        message: 'Campos obrigatórios: cep, rua, numero, bairro, cidade, estado'
+      });
+    }
+
+    // Verificar se o endereço pertence ao usuário
+    const [enderecoExistente]: any = await sequelize.query(
+      'SELECT * FROM enderecos WHERE id_endereco = ? AND id_usuario = ?',
+      {
+        replacements: [id, userId],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    if (!enderecoExistente || (Array.isArray(enderecoExistente) && enderecoExistente.length === 0)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Endereço não encontrado'
+      });
+    }
+
+    // Se for principal, desmarcar outros
+    if (endereco_principal) {
+      await sequelize.query(
+        'UPDATE enderecos SET endereco_principal = 0 WHERE id_usuario = ? AND id_endereco != ?',
+        {
+          replacements: [userId, id],
+          type: sequelize.QueryTypes.UPDATE
+        }
+      );
+    }
+
+    await sequelize.query(
+      `UPDATE enderecos SET
+        cep = ?, rua = ?, numero = ?, complemento = ?, bairro = ?, cidade = ?, estado = ?,
+        tipo_endereco = ?, endereco_principal = ?
+      WHERE id_endereco = ? AND id_usuario = ?`,
+      {
+        replacements: [
+          cep, rua, numero, complemento || null, bairro, cidade, estado,
+          tipo_endereco || 'Residencial', endereco_principal ? 1 : 0,
+          id, userId
+        ],
+        type: sequelize.QueryTypes.UPDATE
+      }
+    );
+
+    // Buscar endereço atualizado
+    const [enderecoAtualizado]: any = await sequelize.query(
+      'SELECT * FROM enderecos WHERE id_endereco = ?',
+      {
+        replacements: [id],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Endereço atualizado com sucesso',
+      data: Array.isArray(enderecoAtualizado) && enderecoAtualizado.length > 0 ? enderecoAtualizado[0] : null
+    });
+  } catch (error: any) {
+    console.error('Erro ao editar endereço:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao editar endereço',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Remover endereço
+router.delete('/enderecos/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    // Verificar se o endereço pertence ao usuário
+    const [enderecoExistente]: any = await sequelize.query(
+      'SELECT * FROM enderecos WHERE id_endereco = ? AND id_usuario = ?',
+      {
+        replacements: [id, userId],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+
+    if (!enderecoExistente || (Array.isArray(enderecoExistente) && enderecoExistente.length === 0)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Endereço não encontrado'
+      });
+    }
+
+    await sequelize.query(
+      'DELETE FROM enderecos WHERE id_endereco = ? AND id_usuario = ?',
+      {
+        replacements: [id, userId],
+        type: sequelize.QueryTypes.DELETE
+      }
+    );
+
+    return res.json({
+      success: true,
+      message: 'Endereço removido com sucesso'
+    });
+  } catch (error: any) {
+    console.error('Erro ao remover endereço:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao remover endereço',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }

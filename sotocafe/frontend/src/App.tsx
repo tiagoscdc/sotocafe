@@ -9,6 +9,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Pedidos from './pages/Pedidos'
 import PopularBanco from './pages/PopularBanco'
+import Perfil from './pages/Perfil'
 import Footer from './components/Footer'
 
 function App() {
@@ -24,6 +25,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/pedidos" element={<Pedidos />} />
+          <Route path="/perfil" element={<Perfil />} />
           <Route path="/popular-banco" element={<PopularBanco />} />
         </Routes>
       </Container>
