@@ -74,32 +74,37 @@ app.use((_req: Request, res: Response) => {
 });
 
 // Conectar ao banco e iniciar servidor
-const startServer = async () => {
-  // Iniciar servidor mesmo se o banco não conectar (para permitir popular via API)
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`\n💡 Para popular o banco, acesse: http://localhost:${PORT}/api/seed/populate (POST)`);
-    console.log(`   Ou acesse: http://localhost:5173/popular-banco\n`);
-  });
+// No Vercel, não iniciamos o servidor HTTP (ele é serverless)
+// Apenas em desenvolvimento local
+if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
+  const startServer = async () => {
+    const PORT = process.env.PORT || 3000;
+    // Iniciar servidor mesmo se o banco não conectar (para permitir popular via API)
+    app.listen(PORT, () => {
+      console.log(`🚀 Servidor rodando na porta ${PORT}`);
+      console.log(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`\n💡 Para popular o banco, acesse: http://localhost:${PORT}/api/seed/populate (POST)`);
+      console.log(`   Ou acesse: http://localhost:5173/popular-banco\n`);
+    });
 
-  // Tentar conectar ao banco em background
-  (async () => {
-    try {
-      await sequelize.authenticate();
-      console.log('✅ Conexão com banco de dados estabelecida com sucesso.');
-    } catch (error: any) {
-      console.warn('⚠️ Aviso: Não foi possível conectar ao banco de dados:', error.message);
-      console.warn('   O servidor continuará rodando. Você pode popular o banco via API.');
-      console.warn('   Verifique se:');
-      console.warn('   1. PostgreSQL está rodando');
-      console.warn('   2. Banco "soto_cafe" foi criado');
-      console.warn('   3. Credenciais no .env estão corretas\n');
-    }
-  })();
-};
+    // Tentar conectar ao banco em background
+    (async () => {
+      try {
+        await sequelize.authenticate();
+        console.log('✅ Conexão com banco de dados estabelecida com sucesso.');
+      } catch (error: any) {
+        console.warn('⚠️ Aviso: Não foi possível conectar ao banco de dados:', error.message);
+        console.warn('   O servidor continuará rodando. Você pode popular o banco via API.');
+        console.warn('   Verifique se:');
+        console.warn('   1. PostgreSQL está rodando');
+        console.warn('   2. Banco "soto_cafe" foi criado');
+        console.warn('   3. Credenciais no .env estão corretas\n');
+      }
+    })();
+  };
 
-startServer();
+  startServer();
+}
 
 export default app;
 
