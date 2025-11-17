@@ -96,9 +96,10 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
 // Adicionar item ao carrinho
 router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response) => {
+  const userId = req.user?.id;
+  const { id_produto, quantidade } = req.body;
+  
   try {
-    const userId = req.user?.id;
-    const { id_produto, quantidade } = req.body;
 
     if (!id_produto || !quantidade || quantidade <= 0) {
       return res.status(400).json({
@@ -210,9 +211,9 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
     console.error('Error details:', {
       message: error.message,
       code: error.code,
-      userId: req.user?.id,
-      id_produto,
-      quantidade
+      userId: userId,
+      id_produto: id_produto,
+      quantidade: quantidade
     });
     return res.status(500).json({
       success: false,
