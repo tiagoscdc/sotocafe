@@ -66,14 +66,14 @@ router.post('/register', async (req: Request, res: Response) => {
       }
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Usuário criado com sucesso',
       data: newUsers[0]
     });
   } catch (error: any) {
     console.error('Erro no registro:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao criar usuário',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
@@ -138,7 +138,8 @@ router.post('/login', async (req: Request, res: Response) => {
     );
 
     // Gerar token JWT
-    const jwtSecret: string = process.env.JWT_SECRET || 'secret';
+    const jwtSecret = (process.env.JWT_SECRET || 'secret') as string;
+    const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as string;
     const token = jwt.sign(
       {
         id: user.id_usuario,
@@ -146,7 +147,7 @@ router.post('/login', async (req: Request, res: Response) => {
         tipoUsuario: user.tipo_usuario
       },
       jwtSecret,
-      { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string }
+      { expiresIn }
     );
 
     return res.json({
@@ -164,7 +165,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro no login:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Erro ao fazer login',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined

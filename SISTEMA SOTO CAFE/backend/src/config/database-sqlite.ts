@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
 
@@ -11,7 +11,7 @@ if (!fs.existsSync(dbDir)) {
 const dbPath = path.join(dbDir, 'soto_cafe.db');
 
 // Criar conexão SQLite
-const db = new Database(dbPath);
+const db: DatabaseType = new Database(dbPath);
 
 // Habilitar foreign keys
 db.pragma('foreign_keys = ON');
