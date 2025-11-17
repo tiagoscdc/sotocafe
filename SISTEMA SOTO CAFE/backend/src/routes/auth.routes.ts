@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import jwt, { SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import sequelize from '../config/database';
 import { authenticateToken, AuthRequest } from '../middleware/auth.middleware';
 
@@ -138,10 +138,8 @@ router.post('/login', async (req: Request, res: Response) => {
     );
 
     // Gerar token JWT
-    const jwtSecret: string = process.env.JWT_SECRET || 'secret';
-    const signOptions: SignOptions = {
-      expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as string | number
-    };
+    const jwtSecret = process.env.JWT_SECRET || 'secret';
+    const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
     const token = jwt.sign(
       {
         id: user.id_usuario,
@@ -149,7 +147,7 @@ router.post('/login', async (req: Request, res: Response) => {
         tipoUsuario: user.tipo_usuario
       },
       jwtSecret,
-      signOptions
+      { expiresIn } as jwt.SignOptions
     );
 
     return res.json({
