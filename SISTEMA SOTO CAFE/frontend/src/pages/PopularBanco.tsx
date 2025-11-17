@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Box, Button, Typography, Alert, CircularProgress, Paper, Grid } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/api'
