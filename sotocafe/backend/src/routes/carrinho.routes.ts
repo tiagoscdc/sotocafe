@@ -89,6 +89,13 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       // Se der erro ao buscar itens (pode ser que não existam itens ainda ou tabela não existe), retornar array vazio
       if (itensError.message?.includes('no such table')) {
         console.warn('⚠️ Tabela item_carrinho não existe ainda. Banco pode precisar ser populado.');
+        // Tentar inicializar banco automaticamente
+        try {
+          const { initDatabase } = await import('../utils/initDatabase');
+          await initDatabase();
+        } catch (initError) {
+          console.warn('⚠️ Erro ao tentar inicializar banco:', initError);
+        }
       } else {
         console.warn('⚠️ Erro ao buscar itens do carrinho (pode ser normal se carrinho estiver vazio):', itensError.message);
       }

@@ -17,6 +17,7 @@ import usuarioRoutes from './routes/usuario.routes';
 import seedRoutes from './routes/seed.routes';
 import cupomRoutes from './routes/cupom.routes';
 import freteRoutes from './routes/frete.routes';
+import { initDatabase } from './utils/initDatabase';
 
 dotenv.config();
 
@@ -90,11 +91,14 @@ if (process.env.NODE_ENV !== 'production' || process.env.VERCEL !== '1') {
       console.log(`   Ou acesse: http://localhost:5173/popular-banco\n`);
     });
 
-    // Tentar conectar ao banco em background
+    // Tentar conectar ao banco e inicializar em background
     (async () => {
       try {
         await sequelize.authenticate();
         console.log('✅ Conexão com banco de dados estabelecida com sucesso.');
+        
+        // Inicializar banco (popular se estiver vazio)
+        await initDatabase();
       } catch (error: any) {
         console.warn('⚠️ Aviso: Não foi possível conectar ao banco de dados:', error.message);
         console.warn('   O servidor continuará rodando. Você pode popular o banco via API.');
