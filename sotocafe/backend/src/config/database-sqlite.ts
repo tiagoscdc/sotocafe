@@ -1,7 +1,6 @@
 import Database, { type Database as DatabaseType } from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 
 // No Vercel, usar /tmp que é writable. Em desenvolvimento, usar diretório local
 const isVercel = process.env.VERCEL === '1' || process.env.NODE_ENV === 'production';
