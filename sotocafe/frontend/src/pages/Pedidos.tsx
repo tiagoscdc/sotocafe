@@ -6,7 +6,7 @@ import api from '../services/api'
 
 const Pedidos = () => {
   const navigate = useNavigate()
-  const { data: pedidos, error, isLoading } = useQuery({
+  const { data: pedidos, error, isLoading } = useQuery<any[]>({
     queryKey: ['pedidos'],
     queryFn: async () => {
       const response = await api.get('/pedidos')
@@ -14,7 +14,7 @@ const Pedidos = () => {
     },
     refetchOnWindowFocus: false,
     staleTime: 30000, // Cache por 30 segundos
-    cacheTime: 300000, // Manter em cache por 5 minutos
+    gcTime: 300000, // Manter em cache por 5 minutos (cacheTime foi renomeado para gcTime)
   })
 
   if (isLoading) {
