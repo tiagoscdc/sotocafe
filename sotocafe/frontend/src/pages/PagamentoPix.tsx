@@ -25,7 +25,7 @@ const PagamentoPix = () => {
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
   const isMountedRef = useRef(true)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const timeoutRef = useRef<number | null>(null)
 
   const criarPedidoMutation = useMutation({
     mutationFn: async () => {
