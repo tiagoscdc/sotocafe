@@ -18,6 +18,15 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     
     const { itens, id_endereco_entrega, metodo_pagamento, id_cupom, valor_frete } = req.body;
 
+    console.log('📦 Criando pedido:', {
+      userId,
+      itens: itens?.length || 0,
+      id_endereco_entrega,
+      metodo_pagamento,
+      id_cupom,
+      valor_frete
+    });
+
     if (!itens || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({
         success: false,
@@ -85,6 +94,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     let cupomIdFinal = null;
     
     if (id_cupom) {
+      console.log('🎫 Buscando cupom:', id_cupom);
+      
       // Buscar cupom por ID ou código (aceita ambos)
       // Primeiro tenta como ID numérico, depois como código
       let cupom = null;
@@ -102,6 +113,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           }
         );
         cupom = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+        console.log('🎫 Cupom encontrado por ID:', cupom ? 'Sim' : 'Não');
       }
       
       // Se não encontrou por ID, tentar por código (case-insensitive)
@@ -117,10 +129,17 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           }
         );
         cupom = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+        console.log('🎫 Cupom encontrado por código:', cupom ? 'Sim' : 'Não');
       }
       
       if (cupom) {
         cupomIdFinal = cupom.id_cupom;
+        console.log('🎫 Cupom válido encontrado:', {
+          id: cupom.id_cupom,
+          codigo: cupom.codigo_cupom,
+          tipo: cupom.tipo_desconto,
+          valor: cupom.valor_desconto
+        });
         
         // Verificar valor mínimo
         if (!cupom.valor_minimo_pedido || valorSubtotal >= cupom.valor_minimo_pedido) {
@@ -129,7 +148,12 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           } else {
             valorDesconto = Math.min(cupom.valor_desconto, valorSubtotal);
           }
+          console.log('🎫 Desconto calculado:', valorDesconto);
+        } else {
+          console.log('🎫 Cupom não aplicado: valor mínimo não atingido');
         }
+      } else {
+        console.log('🎫 Cupom não encontrado ou inválido:', id_cupom);
       }
     }
 
@@ -144,6 +168,14 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
     // Gerar número de pedido
     const numeroPedido = `PED-${new Date().toISOString().split('T')[0].replace(/-/g, '')}-${Date.now().toString().slice(-6)}`;
+    
+    console.log('💰 Valores calculados:', {
+      valorSubtotal,
+      valorDesconto,
+      freteCalculado,
+      valorTotal,
+      cupomIdFinal
+    });
     
     // Criar pedido (SQLite não tem RETURNING)
     await sequelize.query(
@@ -254,7 +286,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       data: pedidoCriado
     });
   } catch (error: any) {
-    console.error('Erro ao criar pedido:', error);
+    console.error('❌ Erro ao criar pedido:', error);
     console.error('Stack:', error.stack);
     console.error('Error details:', {
       message: error.message,
@@ -269,7 +301,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     return res.status(500).json({
       success: false,
       message: 'Erro ao criar pedido',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor'
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor',
+      details: process.env.NODE_ENV === 'development' ? {
+        stack: error.stack,
+        code: error.code
+      } : undefined
     });
   }
 });

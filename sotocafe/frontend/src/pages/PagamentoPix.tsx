@@ -99,6 +99,11 @@ const PagamentoPix = () => {
 
   useEffect(() => {
     if (!carrinho || !endereco || !total) {
+      console.warn('⚠️ Dados faltando para pagamento:', {
+        carrinho: !!carrinho,
+        endereco: !!endereco,
+        total: !!total
+      })
       navigate('/carrinho')
       return
     }

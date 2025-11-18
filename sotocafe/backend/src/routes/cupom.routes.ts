@@ -44,9 +44,32 @@ router.get('/', authenticateToken, authorizeRoles('Administrador', 'Admin'), asy
 router.get('/validar/:codigo', async (req: Request, res: Response) => {
   try {
     const { codigo } = req.params;
+    
+    console.log('🎫 Validando cupom:', codigo);
 
     // Buscar cupom (case-insensitive usando UPPER)
-    // Usar datetime('now') para comparar com data/hora completa
+    // Primeiro, buscar sem filtro de data para debug
+    const [cuponsTodosArray]: any = await sequelize.query(
+      `SELECT * FROM cupons_desconto 
+       WHERE UPPER(codigo_cupom) = UPPER(?)`,
+      {
+        replacements: [codigo],
+        type: sequelize.QueryTypes.SELECT
+      }
+    );
+    
+    console.log('🎫 Cupons encontrados (sem filtro):', Array.isArray(cuponsTodosArray) ? cuponsTodosArray.length : 0);
+    if (Array.isArray(cuponsTodosArray) && cuponsTodosArray.length > 0) {
+      console.log('🎫 Cupom encontrado:', {
+        id: cuponsTodosArray[0].id_cupom,
+        codigo: cuponsTodosArray[0].codigo_cupom,
+        ativo: cuponsTodosArray[0].ativo,
+        data_inicio: cuponsTodosArray[0].data_inicio,
+        data_fim: cuponsTodosArray[0].data_fim
+      });
+    }
+
+    // Buscar cupom válido (com todos os filtros)
     const [cuponsArray]: any = await sequelize.query(
       `SELECT * FROM cupons_desconto 
        WHERE UPPER(codigo_cupom) = UPPER(?) AND ativo = 1 
@@ -61,9 +84,10 @@ router.get('/validar/:codigo', async (req: Request, res: Response) => {
     const cupom = Array.isArray(cuponsArray) && cuponsArray.length > 0 ? cuponsArray[0] : null;
 
     if (!cupom) {
+      console.log('🎫 Cupom não encontrado ou inválido');
       return res.status(404).json({
         success: false,
-        message: 'Cupom não encontrado ou inválido'
+        message: 'Cupom não encontrado ou inválido. Verifique se o cupom está ativo e dentro do período de validade.'
       });
     }
 
