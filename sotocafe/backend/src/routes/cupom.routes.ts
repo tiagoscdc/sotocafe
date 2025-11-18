@@ -45,11 +45,13 @@ router.get('/validar/:codigo', async (req: Request, res: Response) => {
   try {
     const { codigo } = req.params;
 
+    // Buscar cupom (case-insensitive usando UPPER)
+    // Usar datetime('now') para comparar com data/hora completa
     const [cuponsArray]: any = await sequelize.query(
       `SELECT * FROM cupons_desconto 
-       WHERE codigo_cupom = ? AND ativo = 1 
-       AND data_inicio <= DATE('now') 
-       AND data_fim >= DATE('now')`,
+       WHERE UPPER(codigo_cupom) = UPPER(?) AND ativo = 1 
+       AND DATE(data_inicio) <= DATE('now') 
+       AND DATE(data_fim) >= DATE('now')`,
       {
         replacements: [codigo],
         type: sequelize.QueryTypes.SELECT
@@ -79,6 +81,7 @@ router.get('/validar/:codigo', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao validar cupom:', error);
+    console.error('Código buscado:', req.params.codigo);
     return res.status(500).json({
       success: false,
       message: 'Erro ao validar cupom',

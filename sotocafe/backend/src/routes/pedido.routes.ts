@@ -82,21 +82,46 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
     // Calcular desconto do cupom
     let valorDesconto = 0;
+    let cupomIdFinal = null;
+    
     if (id_cupom) {
-      const [cupomArray]: any = await sequelize.query(
-        `SELECT * FROM cupons_desconto 
-         WHERE id_cupom = ? AND ativo = 1 
-         AND data_inicio <= DATE('now') 
-         AND data_fim >= DATE('now')`,
-        {
-          replacements: [id_cupom],
-          type: sequelize.QueryTypes.SELECT
-        }
-      );
-
-      const cupom = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+      // Buscar cupom por ID ou código (aceita ambos)
+      // Primeiro tenta como ID numérico, depois como código
+      let cupom = null;
+      
+      // Tentar buscar por ID (se for numérico)
+      if (!isNaN(Number(id_cupom))) {
+        const [cupomArray]: any = await sequelize.query(
+          `SELECT * FROM cupons_desconto 
+           WHERE id_cupom = ? AND ativo = 1 
+           AND DATE(data_inicio) <= DATE('now') 
+           AND DATE(data_fim) >= DATE('now')`,
+          {
+            replacements: [id_cupom],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        cupom = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+      }
+      
+      // Se não encontrou por ID, tentar por código (case-insensitive)
+      if (!cupom) {
+        const [cupomArray]: any = await sequelize.query(
+          `SELECT * FROM cupons_desconto 
+           WHERE UPPER(codigo_cupom) = UPPER(?) AND ativo = 1 
+           AND DATE(data_inicio) <= DATE('now') 
+           AND DATE(data_fim) >= DATE('now')`,
+          {
+            replacements: [String(id_cupom)],
+            type: sequelize.QueryTypes.SELECT
+          }
+        );
+        cupom = Array.isArray(cupomArray) && cupomArray.length > 0 ? cupomArray[0] : null;
+      }
       
       if (cupom) {
+        cupomIdFinal = cupom.id_cupom;
+        
         // Verificar valor mínimo
         if (!cupom.valor_minimo_pedido || valorSubtotal >= cupom.valor_minimo_pedido) {
           if (cupom.tipo_desconto === 'Percentual') {
@@ -133,11 +158,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           numeroPedido,
           metodo_pagamento,
           valorSubtotal,
-          valorDesconto,
-          freteCalculado,
-          valorTotal,
-          id_cupom || null,
-          'Pendente' // Status inicial do pagamento
+                 valorDesconto,
+                 freteCalculado,
+                 valorTotal,
+                 cupomIdFinal || null,
+                 'Pendente' // Status inicial do pagamento
         ],
         type: sequelize.QueryTypes.INSERT
       }
