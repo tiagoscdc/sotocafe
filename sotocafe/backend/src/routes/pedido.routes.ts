@@ -39,15 +39,21 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Buscar endereço para calcular frete
+    // Verificar se endereço existe
     const [enderecoArray]: any = await sequelize.query(
-      'SELECT cep FROM enderecos WHERE id_endereco = ?',
+      'SELECT id_endereco FROM enderecos WHERE id_endereco = ? AND id_usuario = ?',
       {
-        replacements: [id_endereco_entrega],
+        replacements: [id_endereco_entrega, userId],
         type: sequelize.QueryTypes.SELECT
       }
     );
-    const endereco = Array.isArray(enderecoArray) && enderecoArray.length > 0 ? enderecoArray[0] : null;
+    
+    if (!enderecoArray || enderecoArray.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Endereço de entrega não encontrado'
+      });
+    }
 
     // Calcular subtotal e peso total
     let valorSubtotal = 0;
