@@ -1,7 +1,6 @@
 import { Router, Response } from 'express';
 import sequelize from '../config/database';
 import { authenticateToken, AuthRequest } from '../middleware/auth.middleware';
-import { calcularFrete } from '../services/frete.service';
 
 const router = Router();
 
@@ -9,12 +8,34 @@ const router = Router();
 router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuário não autenticado'
+      });
+    }
+    
     const { itens, id_endereco_entrega, metodo_pagamento, id_cupom, valor_frete } = req.body;
 
     if (!itens || !Array.isArray(itens) || itens.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Pedido deve conter pelo menos um item'
+      });
+    }
+    
+    if (!id_endereco_entrega) {
+      return res.status(400).json({
+        success: false,
+        message: 'Endereço de entrega é obrigatório'
+      });
+    }
+    
+    if (!metodo_pagamento) {
+      return res.status(400).json({
+        success: false,
+        message: 'Método de pagamento é obrigatório'
       });
     }
 
@@ -81,14 +102,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Calcular frete se não foi fornecido
+    // Usar frete fornecido ou calcular um valor padrão
     let freteCalculado = valor_frete || 0;
-    if (!valor_frete && endereco) {
-      freteCalculado = calcularFrete({
-        cep: endereco.cep,
-        pesoTotal,
-        valorSubtotal
-      });
+    if (!valor_frete) {
+      // Se não foi fornecido, calcular frete simples baseado no valor
+      freteCalculado = valorSubtotal >= 200 ? 0 : 15.00;
     }
 
     const valorTotal = valorSubtotal - valorDesconto + freteCalculado;
@@ -206,10 +224,21 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     });
   } catch (error: any) {
     console.error('Erro ao criar pedido:', error);
+    console.error('Stack:', error.stack);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      errno: error.errno,
+      syscall: error.syscall,
+      path: error.path,
+      userId: req.user?.id,
+      body: req.body
+    });
+    
     return res.status(500).json({
       success: false,
       message: 'Erro ao criar pedido',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Erro interno do servidor'
     });
   }
 });

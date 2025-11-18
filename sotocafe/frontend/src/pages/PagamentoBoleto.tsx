@@ -28,6 +28,14 @@ const PagamentoBoleto = () => {
 
   const criarPedidoMutation = useMutation({
     mutationFn: async () => {
+      if (!carrinho || !carrinho.itens || carrinho.itens.length === 0) {
+        throw new Error('Carrinho vazio')
+      }
+      
+      if (!endereco || !endereco.id_endereco) {
+        throw new Error('Endereço não selecionado')
+      }
+
       const itens = carrinho.itens.map((item: any) => ({
         id_produto: item.id_produto,
         quantidade: item.quantidade
@@ -83,12 +91,15 @@ const PagamentoBoleto = () => {
       navigate('/pedidos')
     },
     onError: (error: any) => {
-      alert(error.response?.data?.message || 'Erro ao criar pedido')
+      console.error('Erro ao criar pedido:', error)
+      console.error('Error response:', error.response)
+      const errorMessage = error.response?.data?.message || error.message || 'Erro ao criar pedido'
+      alert(errorMessage)
     }
   })
 
   useEffect(() => {
-    if (!carrinho || !endereco) {
+    if (!carrinho || !endereco || !total) {
       navigate('/carrinho')
       return
     }
@@ -96,7 +107,7 @@ const PagamentoBoleto = () => {
     // Simular geração de boleto
     // Em produção, isso viria de uma API de pagamento real
     setLoading(true)
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       // Gerar dados do boleto simulados
       const vencimentoDate = new Date()
       vencimentoDate.setDate(vencimentoDate.getDate() + 3) // 3 dias para vencimento
@@ -110,6 +121,8 @@ const PagamentoBoleto = () => {
       setCodigoBarras(codigo.replace(/\s/g, '').replace(/\./g, ''))
       setLoading(false)
     }, 2000)
+    
+    return () => clearTimeout(timer)
   }, [carrinho, endereco, total, navigate])
 
   const handleCopyLinhaDigitavel = () => {
@@ -129,7 +142,35 @@ const PagamentoBoleto = () => {
   }
 
   if (!carrinho || !endereco) {
-    return null
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5" color="error" gutterBottom>
+          Dados não encontrados
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Por favor, volte ao carrinho e tente novamente.
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/carrinho')}>
+          Voltar ao Carrinho
+        </Button>
+      </Box>
+    )
+  }
+  
+  if (!carrinho.itens || carrinho.itens.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5" color="error" gutterBottom>
+          Carrinho vazio
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/produtos')}>
+          Ver Produtos
+        </Button>
+      </Box>
+    )
   }
 
   return (

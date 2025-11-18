@@ -27,6 +27,14 @@ const PagamentoPix = () => {
 
   const criarPedidoMutation = useMutation({
     mutationFn: async () => {
+      if (!carrinho || !carrinho.itens || carrinho.itens.length === 0) {
+        throw new Error('Carrinho vazio')
+      }
+      
+      if (!endereco || !endereco.id_endereco) {
+        throw new Error('Endereço não selecionado')
+      }
+
       const itens = carrinho.itens.map((item: any) => ({
         id_produto: item.id_produto,
         quantidade: item.quantidade
@@ -82,12 +90,15 @@ const PagamentoPix = () => {
       navigate('/pedidos')
     },
     onError: (error: any) => {
-      alert(error.response?.data?.message || 'Erro ao criar pedido')
+      console.error('Erro ao criar pedido:', error)
+      console.error('Error response:', error.response)
+      const errorMessage = error.response?.data?.message || error.message || 'Erro ao criar pedido'
+      alert(errorMessage)
     }
   })
 
   useEffect(() => {
-    if (!carrinho || !endereco) {
+    if (!carrinho || !endereco || !total) {
       navigate('/carrinho')
       return
     }
@@ -95,13 +106,15 @@ const PagamentoPix = () => {
     // Simular geração de QR Code PIX
     // Em produção, isso viria de uma API de pagamento real
     setLoading(true)
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       // Gerar código PIX simulado
-      const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${Date.now()}520400005303986540${total.toFixed(2)}5802BR5925SOTO CAFE LTDA6009SAO PAULO62070503***6304`
+      const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${Date.now()}520400005303986540${Number(total).toFixed(2)}5802BR5925SOTO CAFE LTDA6009SAO PAULO62070503***6304`
       setPixCode(codigoPix)
       setQrCode(`data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5QSVggUVIgQ29kZTwvdGV4dD48L3N2Zz4=`)
       setLoading(false)
     }, 2000)
+    
+    return () => clearTimeout(timer)
   }, [carrinho, endereco, total, navigate])
 
   const handleCopyPixCode = () => {
@@ -116,7 +129,35 @@ const PagamentoPix = () => {
   }
 
   if (!carrinho || !endereco) {
-    return null
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5" color="error" gutterBottom>
+          Dados não encontrados
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Por favor, volte ao carrinho e tente novamente.
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/carrinho')}>
+          Voltar ao Carrinho
+        </Button>
+      </Box>
+    )
+  }
+  
+  if (!carrinho.itens || carrinho.itens.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Typography variant="h5" color="error" gutterBottom>
+          Carrinho vazio
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Seu carrinho está vazio. Adicione produtos antes de finalizar a compra.
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/produtos')}>
+          Ver Produtos
+        </Button>
+      </Box>
+    )
   }
 
   return (
