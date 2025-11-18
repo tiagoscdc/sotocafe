@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -24,6 +24,8 @@ const PagamentoPix = () => {
   const [pixCode, setPixCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
+  const isMountedRef = useRef(true)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const criarPedidoMutation = useMutation({
     mutationFn: async () => {
@@ -50,44 +52,56 @@ const PagamentoPix = () => {
       return response.data
     },
     onSuccess: async (data) => {
-      // Limpar carrinho após criar pedido
+      if (!isMountedRef.current) return
+      
       try {
-        // Limpar itens do carrinho primeiro
-        if (carrinho?.itens && carrinho.itens.length > 0) {
-          for (const item of carrinho.itens) {
-            try {
-              await api.delete(`/carrinho/itens/${item.id_item_carrinho}`)
-            } catch (e) {
-              console.warn('Erro ao remover item do carrinho:', e)
+        // Limpar carrinho após criar pedido
+        try {
+          // Limpar itens do carrinho primeiro
+          if (carrinho?.itens && carrinho.itens.length > 0) {
+            for (const item of carrinho.itens) {
+              try {
+                await api.delete(`/carrinho/itens/${item.id_item_carrinho}`)
+              } catch (e) {
+                console.warn('Erro ao remover item do carrinho:', e)
+              }
             }
           }
-        }
-        
-        // Tentar limpar carrinho completo
-        try {
-          await api.delete('/carrinho')
+          
+          // Tentar limpar carrinho completo
+          try {
+            await api.delete('/carrinho')
+          } catch (e) {
+            console.warn('Erro ao limpar carrinho:', e)
+          }
+          
+          // Limpar cache do carrinho
+          if (isMountedRef.current) {
+            queryClient.removeQueries({ queryKey: ['carrinho'] })
+            queryClient.invalidateQueries({ queryKey: ['carrinho'] })
+          }
         } catch (e) {
           console.warn('Erro ao limpar carrinho:', e)
         }
         
-        // Forçar remoção do cache do carrinho
-        queryClient.setQueryData(['carrinho'], null)
-        queryClient.removeQueries({ queryKey: ['carrinho'] })
-        queryClient.invalidateQueries({ queryKey: ['carrinho'] })
-      } catch (e) {
-        console.warn('Erro ao limpar carrinho:', e)
-        // Mesmo com erro, continuar
+        // Invalidar pedidos (sem refetch automático para evitar problemas)
+        if (isMountedRef.current) {
+          queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
+        }
+        
+        // Mostrar mensagem e navegar
+        if (isMountedRef.current) {
+          alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
+          // Navegar imediatamente, sem setTimeout
+          navigate('/pedidos', { replace: true })
+        }
+      } catch (error) {
+        console.error('Erro no onSuccess:', error)
+        if (isMountedRef.current) {
+          alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
+          navigate('/pedidos', { replace: true })
+        }
       }
-      
-      // Invalidar e refetch pedidos (usar exact para não afetar outras queries)
-      queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
-      // Aguardar um pouco antes de refetch para garantir que o pedido foi criado
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ['pedidos'], exact: true })
-      }, 500)
-      
-      alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
-      navigate('/pedidos')
     },
     onError: (error: any) => {
       console.error('Erro ao criar pedido:', error)
@@ -98,6 +112,8 @@ const PagamentoPix = () => {
   })
 
   useEffect(() => {
+    isMountedRef.current = true
+    
     if (!carrinho || !endereco || !total) {
       console.warn('⚠️ Dados faltando para pagamento:', {
         carrinho: !!carrinho,
@@ -111,15 +127,22 @@ const PagamentoPix = () => {
     // Simular geração de QR Code PIX
     // Em produção, isso viria de uma API de pagamento real
     setLoading(true)
-    const timer = setTimeout(() => {
-      // Gerar código PIX simulado
-      const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${Date.now()}520400005303986540${Number(total).toFixed(2)}5802BR5925SOTO CAFE LTDA6009SAO PAULO62070503***6304`
-      setPixCode(codigoPix)
-      setQrCode(`data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5QSVggUVIgQ29kZTwvdGV4dD48L3N2Zz4=`)
-      setLoading(false)
+    timeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        // Gerar código PIX simulado
+        const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${Date.now()}520400005303986540${Number(total).toFixed(2)}5802BR5925SOTO CAFE LTDA6009SAO PAULO62070503***6304`
+        setPixCode(codigoPix)
+        setQrCode(`data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5QSVggUVIgQ29kZTwvdGV4dD48L3N2Zz4=`)
+        setLoading(false)
+      }
     }, 2000)
     
-    return () => clearTimeout(timer)
+    return () => {
+      isMountedRef.current = false
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
   }, [carrinho, endereco, total, navigate])
 
   const handleCopyPixCode = () => {
