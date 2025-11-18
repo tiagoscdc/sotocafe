@@ -26,10 +26,10 @@ const ProdutoDetalhe = () => {
       const response = await api.post('/carrinho/itens', data)
       return response.data
     },
-    onSuccess: () => {
-      // Invalidar e refetch para garantir que os dados estejam atualizados
-      queryClient.invalidateQueries({ queryKey: ['carrinho'], exact: true })
-      queryClient.refetchQueries({ queryKey: ['carrinho'], exact: true })
+    onSuccess: async () => {
+      // Remover cache e refetch para garantir dados atualizados
+      queryClient.removeQueries({ queryKey: ['carrinho'] })
+      await queryClient.refetchQueries({ queryKey: ['carrinho'], exact: true })
       alert('Produto adicionado ao carrinho!')
     },
     onError: (error: any) => {

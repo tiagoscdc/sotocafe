@@ -365,7 +365,7 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) =>
       });
     }
 
-    // Buscar carrinho do usuário
+    // Buscar TODOS os carrinhos do usuário (pode haver múltiplos)
     const [carrinhosArray]: any = await sequelize.query(
       'SELECT id_carrinho FROM carrinho WHERE id_usuario = ?',
       {
@@ -375,21 +375,42 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) =>
     );
 
     if (carrinhosArray && Array.isArray(carrinhosArray) && carrinhosArray.length > 0) {
-      const carrinhoId = carrinhosArray[0].id_carrinho;
-      
-      // Deletar apenas os itens do carrinho (não deletar o carrinho para manter consistência)
-      await sequelize.query(
-        'DELETE FROM item_carrinho WHERE id_carrinho = ?',
-        {
-          replacements: [carrinhoId],
-          type: sequelize.QueryTypes.DELETE
+      // Deletar itens de TODOS os carrinhos do usuário
+      for (const carrinho of carrinhosArray) {
+        const carrinhoId = carrinho.id_carrinho;
+        if (carrinhoId) {
+          try {
+            // Deletar todos os itens do carrinho
+            await sequelize.query(
+              'DELETE FROM item_carrinho WHERE id_carrinho = ?',
+              {
+                replacements: [carrinhoId],
+                type: sequelize.QueryTypes.DELETE
+              }
+            );
+          } catch (e) {
+            console.warn('Erro ao deletar itens do carrinho:', carrinhoId, e);
+          }
         }
-      );
+      }
+      
+      // Também deletar os carrinhos vazios para garantir limpeza completa
+      try {
+        await sequelize.query(
+          'DELETE FROM carrinho WHERE id_usuario = ?',
+          {
+            replacements: [userId],
+            type: sequelize.QueryTypes.DELETE
+          }
+        );
+      } catch (e) {
+        console.warn('Erro ao deletar carrinhos:', e);
+      }
     }
 
     return res.json({
       success: true,
-      message: 'Carrinho limpo'
+      message: 'Carrinho limpo completamente'
     });
   } catch (error: any) {
     console.error('Erro ao limpar carrinho:', error);

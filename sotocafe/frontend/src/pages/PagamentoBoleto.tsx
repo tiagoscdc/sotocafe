@@ -25,7 +25,6 @@ const PagamentoBoleto = () => {
   const [vencimento, setVencimento] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
-  const isMountedRef = useRef(true)
   const timeoutRef = useRef<number | null>(null)
 
   const criarPedidoMutation = useMutation({
@@ -53,55 +52,35 @@ const PagamentoBoleto = () => {
       return response.data
     },
     onSuccess: async (data) => {
-      if (!isMountedRef.current) return
+      // Limpar cache ANTES de qualquer operação assíncrona
+      queryClient.removeQueries({ queryKey: ['carrinho'] })
+      queryClient.setQueryData(['carrinho'], null)
       
       try {
-        // Limpar carrinho após criar pedido
+        // Limpar carrinho no backend
         try {
-          // Limpar itens do carrinho primeiro
-          if (carrinho?.itens && carrinho.itens.length > 0) {
-            for (const item of carrinho.itens) {
-              try {
-                await api.delete(`/carrinho/itens/${item.id_item_carrinho}`)
-              } catch (e) {
-                console.warn('Erro ao remover item do carrinho:', e)
-              }
-            }
-          }
-          
-          // Tentar limpar carrinho completo
-          try {
-            await api.delete('/carrinho')
-          } catch (e) {
-            console.warn('Erro ao limpar carrinho:', e)
-          }
-          
-          // Limpar cache do carrinho
-          if (isMountedRef.current) {
-            queryClient.removeQueries({ queryKey: ['carrinho'] })
-            queryClient.invalidateQueries({ queryKey: ['carrinho'] })
-          }
+          // Limpar carrinho completo no backend
+          await api.delete('/carrinho').catch(() => {
+            // Ignorar erros, apenas tentar limpar
+          })
         } catch (e) {
-          console.warn('Erro ao limpar carrinho:', e)
+          // Ignorar erros de limpeza
         }
         
-        // Invalidar pedidos (sem refetch automático para evitar problemas)
-        if (isMountedRef.current) {
-          queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
-        }
+        // Invalidar pedidos ANTES de navegar
+        queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
         
-        // Mostrar mensagem e navegar
-        if (isMountedRef.current) {
-          alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
-          // Navegar imediatamente, sem setTimeout
-          navigate('/pedidos', { replace: true })
-        }
+        // Mostrar mensagem
+        const numeroPedido = data?.data?.numero_pedido || 'N/A'
+        alert(`Pedido criado com sucesso! Número: ${numeroPedido}`)
+        
+        // Navegar imediatamente - não fazer mais nada após isso
+        navigate('/pedidos', { replace: true })
       } catch (error) {
         console.error('Erro no onSuccess:', error)
-        if (isMountedRef.current) {
-          alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
-          navigate('/pedidos', { replace: true })
-        }
+        const numeroPedido = data?.data?.numero_pedido || 'N/A'
+        alert(`Pedido criado com sucesso! Número: ${numeroPedido}`)
+        navigate('/pedidos', { replace: true })
       }
     },
     onError: (error: any) => {
@@ -113,8 +92,6 @@ const PagamentoBoleto = () => {
   })
 
   useEffect(() => {
-    isMountedRef.current = true
-    
     if (!carrinho || !endereco || !total) {
       navigate('/carrinho')
       return
@@ -124,24 +101,21 @@ const PagamentoBoleto = () => {
     // Em produção, isso viria de uma API de pagamento real
     setLoading(true)
     timeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current) {
-        // Gerar dados do boleto simulados
-        const vencimentoDate = new Date()
-        vencimentoDate.setDate(vencimentoDate.getDate() + 3) // 3 dias para vencimento
-        setVencimento(vencimentoDate.toLocaleDateString('pt-BR'))
-        
-        // Código de barras simulado (formato padrão brasileiro)
-        const codigo = `34191.${Math.floor(Math.random() * 10000).toString().padStart(4, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}.${Math.floor(Math.random() * 100000).toString().padStart(5, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}.${Math.floor(Math.random() * 100000).toString().padStart(6, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(5, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`
-        setLinhaDigitavel(codigo)
-        
-        // Código de barras numérico
-        setCodigoBarras(codigo.replace(/\s/g, '').replace(/\./g, ''))
-        setLoading(false)
-      }
+      // Gerar dados do boleto simulados
+      const vencimentoDate = new Date()
+      vencimentoDate.setDate(vencimentoDate.getDate() + 3) // 3 dias para vencimento
+      setVencimento(vencimentoDate.toLocaleDateString('pt-BR'))
+      
+      // Código de barras simulado (formato padrão brasileiro)
+      const codigo = `34191.${Math.floor(Math.random() * 10000).toString().padStart(4, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}.${Math.floor(Math.random() * 100000).toString().padStart(5, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(5, '0')}.${Math.floor(Math.random() * 100000).toString().padStart(6, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(5, '0')} ${Math.floor(Math.random() * 100000).toString().padStart(6, '0')}`
+      setLinhaDigitavel(codigo)
+      
+      // Código de barras numérico
+      setCodigoBarras(codigo.replace(/\s/g, '').replace(/\./g, ''))
+      setLoading(false)
     }, 2000)
     
     return () => {
-      isMountedRef.current = false
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }

@@ -14,12 +14,17 @@ const Carrinho = () => {
   const [cupomErro, setCupomErro] = useState('')
 
   // Hooks devem ser chamados sempre na mesma ordem (regra dos hooks do React)
-  const { data: carrinho, error: carrinhoError } = useQuery({
+  const { data: carrinho, error: carrinhoError, refetch: refetchCarrinho } = useQuery({
     queryKey: ['carrinho'],
     queryFn: async () => {
       try {
         const response = await api.get('/carrinho')
-        return response.data.data
+        const data = response.data.data
+        // Garantir que itens seja sempre um array
+        if (data && (!data.itens || !Array.isArray(data.itens))) {
+          data.itens = []
+        }
+        return data
       } catch (error: any) {
         console.error('Erro ao buscar carrinho:', error)
         throw error
@@ -28,7 +33,8 @@ const Carrinho = () => {
     enabled: !!token, // Só executa se tiver token
     retry: 1,
     refetchOnWindowFocus: false, // Evitar refetch desnecessário
-    staleTime: 10000, // Cache por 10 segundos
+    staleTime: 0, // Sempre buscar dados frescos
+    gcTime: 0, // Não manter cache
   })
 
   const removerItemMutation = useMutation({
@@ -36,9 +42,10 @@ const Carrinho = () => {
       const response = await api.delete(`/carrinho/itens/${id}`)
       return response.data
     },
-    onSuccess: () => {
-      // Invalidar apenas a query do carrinho, não outras queries
-      queryClient.invalidateQueries({ queryKey: ['carrinho'], exact: true })
+    onSuccess: async () => {
+      // Remover cache e refetch para garantir dados atualizados
+      queryClient.removeQueries({ queryKey: ['carrinho'] })
+      await refetchCarrinho()
     },
     onError: (error: any) => {
       console.error('Erro ao remover item:', error)

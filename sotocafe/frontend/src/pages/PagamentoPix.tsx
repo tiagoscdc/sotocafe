@@ -24,7 +24,6 @@ const PagamentoPix = () => {
   const [pixCode, setPixCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
-  const isMountedRef = useRef(true)
   const timeoutRef = useRef<number | null>(null)
 
   const criarPedidoMutation = useMutation({
@@ -52,55 +51,35 @@ const PagamentoPix = () => {
       return response.data
     },
     onSuccess: async (data) => {
-      if (!isMountedRef.current) return
+      // Limpar cache ANTES de qualquer operação assíncrona
+      queryClient.removeQueries({ queryKey: ['carrinho'] })
+      queryClient.setQueryData(['carrinho'], null)
       
       try {
-        // Limpar carrinho após criar pedido
+        // Limpar carrinho no backend
         try {
-          // Limpar itens do carrinho primeiro
-          if (carrinho?.itens && carrinho.itens.length > 0) {
-            for (const item of carrinho.itens) {
-              try {
-                await api.delete(`/carrinho/itens/${item.id_item_carrinho}`)
-              } catch (e) {
-                console.warn('Erro ao remover item do carrinho:', e)
-              }
-            }
-          }
-          
-          // Tentar limpar carrinho completo
-          try {
-            await api.delete('/carrinho')
-          } catch (e) {
-            console.warn('Erro ao limpar carrinho:', e)
-          }
-          
-          // Limpar cache do carrinho
-          if (isMountedRef.current) {
-            queryClient.removeQueries({ queryKey: ['carrinho'] })
-            queryClient.invalidateQueries({ queryKey: ['carrinho'] })
-          }
+          // Limpar carrinho completo no backend
+          await api.delete('/carrinho').catch(() => {
+            // Ignorar erros, apenas tentar limpar
+          })
         } catch (e) {
-          console.warn('Erro ao limpar carrinho:', e)
+          // Ignorar erros de limpeza
         }
         
-        // Invalidar pedidos (sem refetch automático para evitar problemas)
-        if (isMountedRef.current) {
-          queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
-        }
+        // Invalidar pedidos ANTES de navegar
+        queryClient.invalidateQueries({ queryKey: ['pedidos'], exact: true })
         
-        // Mostrar mensagem e navegar
-        if (isMountedRef.current) {
-          alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
-          // Navegar imediatamente, sem setTimeout
-          navigate('/pedidos', { replace: true })
-        }
+        // Mostrar mensagem
+        const numeroPedido = data?.data?.numero_pedido || 'N/A'
+        alert(`Pedido criado com sucesso! Número: ${numeroPedido}`)
+        
+        // Navegar imediatamente - não fazer mais nada após isso
+        navigate('/pedidos', { replace: true })
       } catch (error) {
         console.error('Erro no onSuccess:', error)
-        if (isMountedRef.current) {
-          alert(`Pedido criado com sucesso! Número: ${data.data.numero_pedido}`)
-          navigate('/pedidos', { replace: true })
-        }
+        const numeroPedido = data?.data?.numero_pedido || 'N/A'
+        alert(`Pedido criado com sucesso! Número: ${numeroPedido}`)
+        navigate('/pedidos', { replace: true })
       }
     },
     onError: (error: any) => {
@@ -112,8 +91,6 @@ const PagamentoPix = () => {
   })
 
   useEffect(() => {
-    isMountedRef.current = true
-    
     if (!carrinho || !endereco || !total) {
       console.warn('⚠️ Dados faltando para pagamento:', {
         carrinho: !!carrinho,
@@ -128,17 +105,14 @@ const PagamentoPix = () => {
     // Em produção, isso viria de uma API de pagamento real
     setLoading(true)
     timeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current) {
-        // Gerar código PIX simulado
-        const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${Date.now()}520400005303986540${Number(total).toFixed(2)}5802BR5925SOTO CAFE LTDA6009SAO PAULO62070503***6304`
-        setPixCode(codigoPix)
-        setQrCode(`data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5QSVggUVIgQ29kZTwvdGV4dD48L3N2Zz4=`)
-        setLoading(false)
-      }
+      // Gerar código PIX simulado
+      const codigoPix = `00020126580014BR.GOV.BCB.PIX0136${Date.now()}520400005303986540${Number(total).toFixed(2)}5802BR5925SOTO CAFE LTDA6009SAO PAULO62070503***6304`
+      setPixCode(codigoPix)
+      setQrCode(`data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2ZmZiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5QSVggUVIgQ29kZTwvdGV4dD48L3N2Zz4=`)
+      setLoading(false)
     }, 2000)
     
     return () => {
-      isMountedRef.current = false
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }
