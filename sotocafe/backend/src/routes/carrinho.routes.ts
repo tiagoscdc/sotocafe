@@ -197,16 +197,9 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
       });
     }
 
-    // Buscar ou criar carrinho (garantir que sempre use o mesmo carrinho ativo)
-    // Primeiro, buscar carrinho que tenha itens ou seja o mais recente
+    // Buscar ou criar carrinho (sempre usar o carrinho mais recente do usuário)
     const [carrinhosArray2]: any = await sequelize.query(
-      `SELECT c.* FROM carrinho c
-       LEFT JOIN item_carrinho ic ON c.id_carrinho = ic.id_carrinho
-       WHERE c.id_usuario = ?
-       GROUP BY c.id_carrinho
-       HAVING COUNT(ic.id_item_carrinho) > 0
-       ORDER BY c.data_criacao DESC
-       LIMIT 1`,
+      `SELECT * FROM carrinho WHERE id_usuario = ? ORDER BY data_criacao DESC LIMIT 1`,
       {
         replacements: [userId],
         type: sequelize.QueryTypes.SELECT
@@ -215,19 +208,7 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
     
     let carrinho = Array.isArray(carrinhosArray2) && carrinhosArray2.length > 0 ? carrinhosArray2[0] : null;
 
-    // Se não encontrou carrinho com itens, buscar qualquer carrinho do usuário
-    if (!carrinho) {
-      const [carrinhosVaziosArray]: any = await sequelize.query(
-        `SELECT * FROM carrinho WHERE id_usuario = ? ORDER BY data_criacao DESC LIMIT 1`,
-        {
-          replacements: [userId],
-          type: sequelize.QueryTypes.SELECT
-        }
-      );
-      carrinho = Array.isArray(carrinhosVaziosArray) && carrinhosVaziosArray.length > 0 ? carrinhosVaziosArray[0] : null;
-    }
-
-    // Se ainda não tem carrinho, criar um novo
+    // Se não tem carrinho, criar um novo
     if (!carrinho) {
       await sequelize.query(
         `INSERT INTO carrinho (id_usuario) VALUES (?)`,
@@ -253,19 +234,28 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
       }
     }
 
+    // Garantir que temos o ID do carrinho
+    const carrinhoId = carrinho.id_carrinho;
+    if (!carrinhoId) {
+      return res.status(500).json({
+        success: false,
+        message: 'Erro: carrinho sem ID'
+      });
+    }
+
     // Verificar se item já existe no carrinho
     const [itensExistentesArray]: any = await sequelize.query(
       'SELECT * FROM item_carrinho WHERE id_carrinho = ? AND id_produto = ?',
       {
-        replacements: [carrinho.id_carrinho, id_produto],
+        replacements: [carrinhoId, id_produto],
         type: sequelize.QueryTypes.SELECT
       }
     );
     
     const itemExistente = Array.isArray(itensExistentesArray) && itensExistentesArray.length > 0 ? itensExistentesArray[0] : null;
 
-    if (itemExistente) {
-      // Atualizar quantidade
+    if (itemExistente && itemExistente.id_item_carrinho) {
+      // Atualizar quantidade do item existente (somar com a quantidade nova)
       await sequelize.query(
         'UPDATE item_carrinho SET quantidade = quantidade + ? WHERE id_item_carrinho = ?',
         {
@@ -274,11 +264,11 @@ router.post('/itens', authenticateToken, async (req: AuthRequest, res: Response)
         }
       );
     } else {
-      // Adicionar novo item
+      // Adicionar novo item ao carrinho (não substituir)
       await sequelize.query(
         'INSERT INTO item_carrinho (id_carrinho, id_produto, quantidade) VALUES (?, ?, ?)',
         {
-          replacements: [carrinho.id_carrinho, id_produto, quantidade],
+          replacements: [carrinhoId, id_produto, quantidade],
           type: sequelize.QueryTypes.INSERT
         }
       );
@@ -387,7 +377,7 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) =>
     if (carrinhosArray && Array.isArray(carrinhosArray) && carrinhosArray.length > 0) {
       const carrinhoId = carrinhosArray[0].id_carrinho;
       
-      // Deletar itens do carrinho
+      // Deletar apenas os itens do carrinho (não deletar o carrinho para manter consistência)
       await sequelize.query(
         'DELETE FROM item_carrinho WHERE id_carrinho = ?',
         {
@@ -395,20 +385,6 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res: Response) =>
           type: sequelize.QueryTypes.DELETE
         }
       );
-      
-      // Também deletar o carrinho (opcional, mas ajuda a garantir limpeza)
-      try {
-        await sequelize.query(
-          'DELETE FROM carrinho WHERE id_carrinho = ?',
-          {
-            replacements: [carrinhoId],
-            type: sequelize.QueryTypes.DELETE
-          }
-        );
-      } catch (e) {
-        // Ignorar erro se não conseguir deletar o carrinho
-        console.warn('Aviso: não foi possível deletar o carrinho:', e);
-      }
     }
 
     return res.json({
